@@ -755,26 +755,63 @@ def render_header():
 # ============================================================================
 # TEMPLATE MANAGEMENT
 # ============================================================================
+# ============================================================================
+# TEMPLATE MANAGEMENT - UPDATED FOR STREAMLIT CLOUD
+# ============================================================================
 class TemplateManager:
     def __init__(self):
-        self.templates_dir = Path("templates")
-        self.templates_dir.mkdir(exist_ok=True)
+        # Try multiple possible template locations
+        self.template_locations = [
+            Path("templates"),  # For local development
+            Path("sow_app/templates"),  # For Streamlit Cloud if app is in sow_app folder
+            Path(".") / "templates",  # Current directory
+            Path(__file__).parent / "templates",  # Same directory as main.py
+        ]
+        
+        # Also check for templates in the app directory
+        self.ensure_templates_exist()
+    
+    def ensure_templates_exist(self):
+        """Ensure template files exist in the current directory"""
+        template_files = [
+            "Fixed_Fee_Template.docx",
+            "T&M_Template.docx",
+            "Change_Order_Template.docx"
+        ]
+        
+        for template_file in template_files:
+            found = False
+            for location in self.template_locations:
+                template_path = location / template_file
+                if template_path.exists():
+                    print(f"✅ Found template at: {template_path}")
+                    found = True
+                    break
+            
+            if not found:
+                print(f"⚠️ Template not found: {template_file}")
+                # Create a default template
+                self.create_default_template_by_name(template_file)
     
     def get_template(self, project_type):
-        """Get template based on project type"""
+        """Get template based on project type - UPDATED FOR STREAMLIT CLOUD"""
         template_name = Config.TEMPLATE_MAPPING.get(project_type)
         if not template_name:
             st.error(f"No template defined for project type: {project_type}")
             return self.create_default_template(project_type)
         
-        local_path = self.templates_dir / template_name
+        # Try to find the template in multiple locations
+        for location in self.template_locations:
+            template_path = location / template_name
+            if template_path.exists():
+                try:
+                    print(f"✅ Loading template from: {template_path}")
+                    return BytesIO(template_path.read_bytes())
+                except Exception as e:
+                    print(f"❌ Error loading template {template_path}: {e}")
         
-        # Check local templates
-        if local_path.exists():
-            return BytesIO(local_path.read_bytes())
-        
-        # Create default template if none exists
-        st.warning(f"Template {template_name} not found. Creating default template.")
+        # If not found, create default
+        print(f"⚠️ Template {template_name} not found in any location. Creating default.")
         return self.create_default_template(project_type, template_name)
     
     def create_default_template(self, project_type, template_name=None):
@@ -832,10 +869,32 @@ class TemplateManager:
         
         # Save locally for future use
         if template_name:
-            save_path = self.templates_dir / template_name
-            save_path.write_bytes(buffer.getvalue())
+            # Try to save in the first available location
+            for location in self.template_locations:
+                try:
+                    location.mkdir(exist_ok=True)
+                    save_path = location / template_name
+                    save_path.write_bytes(buffer.getvalue())
+                    print(f"💾 Saved template to: {save_path}")
+                    break
+                except Exception as e:
+                    print(f"Could not save to {location}: {e}")
         
         return buffer
+    
+    def create_default_template_by_name(self, template_name):
+        """Create a default template based on template name"""
+        # Determine project type from template name
+        if "Fixed_Fee" in template_name:
+            project_type = "Fixed Fee"
+        elif "T&M" in template_name:
+            project_type = "T&M"
+        elif "Change_Order" in template_name:
+            project_type = "Change Order"
+        else:
+            project_type = "Fixed Fee"
+        
+        return self.create_default_template(project_type, template_name)
 
 # ============================================================================
 # PAGE 1: SOW GENERATOR
