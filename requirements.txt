@@ -1,5 +1,0 @@
-streamlit
-docxtpl
-pandas
-python-docx
-Pillow
