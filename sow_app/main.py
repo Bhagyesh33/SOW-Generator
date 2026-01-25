@@ -12,6 +12,9 @@ import requests
 import time
 import numpy as np
 from pathlib import Path
+import openpyxl
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.utils import get_column_letter
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -482,6 +485,245 @@ class SharePointService:
         except Exception as e:
             print(f"❌ Error getting document: {str(e)}")
             return None
+        
+# ============================================================================
+# EXCEL EXPORTER CLASS
+# ============================================================================
+class ExcelExporter:
+    """Class to handle Excel file creation for SOW data"""
+    
+    def __init__(self, output_folder="generated_excels"):
+        self.output_folder = output_folder
+        self.ensure_folder_exists()
+    
+    def ensure_folder_exists(self):
+        """Create output folder if it doesn't exist"""
+        os.makedirs(self.output_folder, exist_ok=True)
+    
+    def create_fixed_fee_milestone_excel(self, sow_data, milestone_df):
+        """Create Excel file for Fixed Fee milestone payments"""
+        try:
+            # Extract data
+            sow_number = sow_data.get("sow_num", "UNKNOWN")
+            sow_name = sow_data.get("sow_name", "Unknown SOW")
+            client = sow_data.get("Client_Name", "Unknown Client")
+            total_fees = sow_data.get("Fees_al", 0)
+            start_date = sow_data.get("start_date", date.today())
+            end_date = sow_data.get("end_date", date.today())
+            
+            # Create workbook
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Milestone Payments"
+            
+            # Header styling
+            header_font = Font(bold=True, color="FFFFFF", size=12)
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            thin_border = Border(left=Side(style='thin'), 
+                                right=Side(style='thin'), 
+                                top=Side(style='thin'), 
+                                bottom=Side(style='thin'))
+            
+            # Write SOW Information
+            ws['A1'] = f"SOW: {sow_number} - {sow_name}"
+            ws['A1'].font = Font(bold=True, size=14, color="366092")
+            ws.merge_cells('A1:E1')
+            
+            ws['A2'] = f"Client: {client}"
+            ws['A2'].font = Font(bold=True)
+            
+            ws['A3'] = f"Total Contract Value: ${total_fees:,.2f}"
+            ws['A3'].font = Font(bold=True)
+            
+            ws['A4'] = f"Contract Period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+            
+            # Blank row
+            ws['A6'] = "Milestone Payment Schedule"
+            ws['A6'].font = Font(bold=True, size=12)
+            ws.merge_cells('A6:E6')
+            
+            # Column headers for milestones
+            headers = ["Milestone #", "Services / Deliverables", "Due Date", 
+                      "Payment Allocation (%)", "Payment Amount ($)"]
+            
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=8, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center")
+                cell.border = thin_border
+                ws.column_dimensions[get_column_letter(col)].width = 25
+            
+            # Write milestone data
+            if milestone_df is not None and not milestone_df.empty:
+                for idx, row in enumerate(milestone_df.itertuples(), 9):
+                    ws.cell(row=idx, column=1, value=row.milestone_no)
+                    ws.cell(row=idx, column=2, value=row.services)
+                    ws.cell(row=idx, column=3, value=row.due_date.strftime('%Y-%m-%d'))
+                    ws.cell(row=idx, column=4, value=row.allocation)
+                    ws.cell(row=idx, column=5, value=row.net_pay)
+                    
+                    # Add formatting
+                    for col in range(1, 6):
+                        cell = ws.cell(row=idx, column=col)
+                        cell.border = thin_border
+                        if col in [4, 5]:
+                            cell.number_format = '#,##0.00'
+                        if col == 5:
+                            cell.font = Font(bold=True)
+                
+                # Calculate totals
+                total_row = len(milestone_df) + 10
+                ws.cell(row=total_row, column=4, value="Total:").font = Font(bold=True)
+                ws.cell(row=total_row, column=5, value=milestone_df["net_pay"].sum())
+                ws.cell(row=total_row, column=5).font = Font(bold=True)
+                ws.cell(row=total_row, column=5).number_format = '#,##0.00'
+            
+            # Add summary section
+            summary_row = total_row + 2 if milestone_df is not None else 15
+            ws.cell(row=summary_row, column=1, value="Summary").font = Font(bold=True, size=12)
+            
+            # Save file
+            file_name = f"{sow_number}_Milestone_Payments.xlsx"
+            file_path = os.path.join(self.output_folder, file_name)
+            wb.save(file_path)
+            
+            print(f"✅ Created milestone Excel: {file_path}")
+            return file_path
+            
+        except Exception as e:
+            print(f"❌ Error creating milestone Excel: {str(e)}")
+            return None
+    
+    def create_tm_resource_excel(self, sow_data, resources_df):
+        """Create Excel file for T&M resource details - FIXED VERSION"""
+        try:
+            # Extract data
+            sow_number = sow_data.get("sow_num", "UNKNOWN")
+            sow_name = sow_data.get("sow_name", "Unknown SOW")
+            client = sow_data.get("Client_Name", "Unknown Client")
+            
+            # Create workbook
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Resource Details"
+            
+            # Header styling
+            header_font = Font(bold=True, color="FFFFFF", size=12)
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            thin_border = Border(left=Side(style='thin'), 
+                                right=Side(style='thin'), 
+                                top=Side(style='thin'), 
+                                bottom=Side(style='thin'))
+            
+            # Write SOW Information
+            ws['A1'] = f"SOW: {sow_number} - {sow_name}"
+            ws['A1'].font = Font(bold=True, size=14, color="4472C4")
+            ws.merge_cells('A1:H1')
+            
+            ws['A2'] = f"Client: {client}"
+            ws['A2'].font = Font(bold=True)
+            
+            ws['A3'] = f"Project Type: T&M (Time & Materials)"
+            ws['A3'].font = Font(bold=True)
+            
+            # Blank row
+            ws['A5'] = "Resource Allocation Details"
+            ws['A5'].font = Font(bold=True, size=12)
+            ws.merge_cells('A5:H5')
+            
+            # Column headers for resources - FIXED to match your DataFrame
+            headers = ["Role", "Location", "Start Date", "End Date", 
+                      "Allocation %", "Hrs/Day", "Rate/hr ($)", "Estimated $"]
+            
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=7, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center")
+                cell.border = thin_border
+                # Adjust column widths
+                ws.column_dimensions[get_column_letter(col)].width = 15
+            ws.column_dimensions['B'].width = 12  # Location
+            ws.column_dimensions['C'].width = 12  # Start Date
+            ws.column_dimensions['D'].width = 12  # End Date
+            
+            # Write resource data
+            if resources_df is not None and not resources_df.empty:
+                # Make sure we have the right column names
+                print(f"🔍 DEBUG: Resources DataFrame columns: {list(resources_df.columns)}")
+                print(f"🔍 DEBUG: Resources DataFrame shape: {resources_df.shape}")
+                
+                for idx, row in resources_df.iterrows():
+                    ws_row = idx + 8  # Start from row 8
+                    
+                    # Safely get values with default fallbacks
+                    role = row.get("Role", "")
+                    location = row.get("Location", "")
+                    start_date = row.get("Start Date", date.today())
+                    end_date = row.get("End Date", date.today())
+                    allocation = row.get("Allocation %", 0)
+                    hrs_day = row.get("Hrs/Day", 8)
+                    rate = row.get("Rate/hr ($)", 0)
+                    estimated = row.get("Estimated $", 0)
+                    
+                    # Write values
+                    ws.cell(row=ws_row, column=1, value=role)
+                    ws.cell(row=ws_row, column=2, value=location)
+                    ws.cell(row=ws_row, column=3, value=start_date.strftime('%Y-%m-%d') if hasattr(start_date, 'strftime') else str(start_date))
+                    ws.cell(row=ws_row, column=4, value=end_date.strftime('%Y-%m-%d') if hasattr(end_date, 'strftime') else str(end_date))
+                    ws.cell(row=ws_row, column=5, value=allocation)
+                    ws.cell(row=ws_row, column=6, value=hrs_day)
+                    ws.cell(row=ws_row, column=7, value=rate)
+                    ws.cell(row=ws_row, column=8, value=estimated)
+                    
+                    # Add formatting
+                    for col in range(1, 9):
+                        cell = ws.cell(row=ws_row, column=col)
+                        cell.border = thin_border
+                        if col in [5, 6, 7, 8]:
+                            try:
+                                cell.number_format = '#,##0.00'
+                            except:
+                                pass
+                        if col == 8:
+                            cell.font = Font(bold=True)
+                
+                # Calculate totals
+                total_row = len(resources_df) + 9
+                ws.cell(row=total_row, column=7, value="Total:").font = Font(bold=True)
+                
+                total_estimated = resources_df["Estimated $"].sum() if "Estimated $" in resources_df.columns else 0
+                ws.cell(row=total_row, column=8, value=total_estimated)
+                ws.cell(row=total_row, column=8).font = Font(bold=True)
+                ws.cell(row=total_row, column=8).number_format = '#,##0.00'
+                
+                # Add calculation details
+                details_row = total_row + 2
+                ws.cell(row=details_row, column=1, value="Calculation Method:").font = Font(bold=True)
+                ws.cell(row=details_row+1, column=1, 
+                       value="Estimated Cost = Working Days × (Allocation%/100) × Hours/Day × Rate/Hour")
+                ws.merge_cells(f'A{details_row+1}:H{details_row+1}')
+            
+            # Add timestamp
+            timestamp_row = details_row + 3 if 'details_row' in locals() else 15
+            ws.cell(row=timestamp_row, column=1, 
+                   value=f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Save file
+            file_name = f"{sow_number}_Resource_Details.xlsx"
+            file_path = os.path.join(self.output_folder, file_name)
+            wb.save(file_path)
+            
+            print(f"✅ Created resource Excel: {file_path}")
+            return file_path
+            
+        except Exception as e:
+            print(f"❌ Error creating resource Excel: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
@@ -1415,17 +1657,31 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
                 })
             
             # Store form_data in session state
+                        # Store form_data in session state
             st.session_state.form_data = form_data
             
-            # Debug: Print what we're storing
-            print(f"🔍 DEBUG: Form data stored:")
-            print(f"  - Option: {option}")
-            if option == "Fixed Fee":
-                print(f"  - Fees_al: {Fees_al_value}")
-            elif option == "T&M":
-                print(f"  - currency_value: {currency_value}")
-            elif option == "Change Order":
-                print(f"  - difference: {difference_value}")
+            # NEW: Create Excel files based on project type
+            excel_exporter = ExcelExporter()
+            
+            if option == "Fixed Fee" and milestone_df is not None and not milestone_df.empty:
+                excel_path = excel_exporter.create_fixed_fee_milestone_excel(form_data, milestone_df)
+                if excel_path:
+                    # Store Excel file data for download
+                    with open(excel_path, 'rb') as f:
+                        st.session_state.fixed_fee_excel_data = f.read()
+                    st.session_state.fixed_fee_excel_name = f"{sow_num}_Milestone_Payments.xlsx"
+                    st.info(f"📊 Milestone payment Excel file created: {os.path.basename(excel_path)}")
+            
+            elif option == "T&M" and resources_df is not None and not resources_df.empty:
+                excel_path = excel_exporter.create_tm_resource_excel(form_data, resources_df)
+                if excel_path:
+                    # Store Excel file data for download
+                    with open(excel_path, 'rb') as f:
+                        st.session_state.tm_excel_data = f.read()
+                    st.session_state.tm_excel_name = f"{sow_num}_Resource_Details.xlsx"
+                    st.info(f"📊 Resource details Excel file created: {os.path.basename(excel_path)}")
+            
+            st.success("✅ SOW document generated successfully!")
             
             st.success("✅ SOW document generated successfully!")
             st.session_state.should_increment_on_download = True
@@ -1520,32 +1776,113 @@ def debug_form_data(form_data):
         if 'difference' in form_data:
             print(f"  - difference: {form_data['difference']}")
 
-            
+
 def show_download_section():
-    """Show download and upload options"""
+    """Show download and upload options - UPDATED with Excel downloads"""
     st.divider()
     st.subheader("📄 Document Ready")
     
-    col1, col2 = st.columns(2)
+    # Create columns based on project type
+    if st.session_state.form_data.get('option') == 'Fixed Fee':
+        # Fixed Fee: Show Word doc and Excel milestone
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Word Document
+            st.markdown("#### 📝 SOW Document")
+            st.download_button(
+                "Download SOW Document",
+                data=st.session_state.file_data,
+                file_name=st.session_state.generated_file_path,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="download_local_word",
+                use_container_width=True
+            )
+            st.caption("Download the SOW Word document")
+        
+        with col2:
+            # Milestone Excel
+            if hasattr(st.session_state, 'fixed_fee_excel_data'):
+                st.markdown("#### 📊 Milestone Payments")
+                st.download_button(
+                    "Download Milestone Excel",
+                    data=st.session_state.fixed_fee_excel_data,
+                    file_name=st.session_state.fixed_fee_excel_name,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_milestone_excel",
+                    use_container_width=True
+                )
+                st.caption("Download milestone payment schedule")
+            else:
+                st.markdown("#### 📊 Milestone Payments")
+                st.info("No milestone data available")
+        
+        with col3:
+            # SharePoint Upload
+            st.markdown("#### ☁️ Upload to SharePoint")
+            if st.button("Upload Documents", use_container_width=True, type="secondary"):
+                upload_document_to_sharepoint()
     
-    with col1:
-        # Local Download
-        st.markdown("#### 💾 Download Locally")
-        st.download_button(
-            "Download SOW Document",
-            data=st.session_state.file_data,
-            file_name=st.session_state.generated_file_path,
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="download_local",
-            use_container_width=True
-        )
-        st.caption("Download the document to your computer")
+    elif st.session_state.form_data.get('option') == 'T&M':
+        # T&M: Show Word doc and Excel resource details
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Word Document
+            st.markdown("#### 📝 SOW Document")
+            st.download_button(
+                "Download SOW Document",
+                data=st.session_state.file_data,
+                file_name=st.session_state.generated_file_path,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="download_local_word",
+                use_container_width=True
+            )
+            st.caption("Download the SOW Word document")
+        
+        with col2:
+            # Resource Excel
+            if hasattr(st.session_state, 'tm_excel_data'):
+                st.markdown("#### 👥 Resource Details")
+                st.download_button(
+                    "Download Resource Excel",
+                    data=st.session_state.tm_excel_data,
+                    file_name=st.session_state.tm_excel_name,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_resource_excel",
+                    use_container_width=True
+                )
+                st.caption("Download resource allocation details")
+            else:
+                st.markdown("#### 👥 Resource Details")
+                st.info("No resource data available")
+        
+        with col3:
+            # SharePoint Upload
+            st.markdown("#### ☁️ Upload to SharePoint")
+            if st.button("Upload Documents", use_container_width=True, type="secondary"):
+                upload_document_to_sharepoint()
     
-    with col2:
-        # Upload to SharePoint
-        st.markdown("#### ☁️ Upload to SharePoint")
-        if st.button("Upload Document", use_container_width=True, type="secondary"):
-            upload_document_to_sharepoint()
+    else:
+        # Other project types (Change Order)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 📝 SOW Document")
+            st.download_button(
+                "Download SOW Document",
+                data=st.session_state.file_data,
+                file_name=st.session_state.generated_file_path,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="download_local_word",
+                use_container_width=True
+            )
+            st.caption("Download the SOW Word document")
+        
+        with col2:
+            st.markdown("#### ☁️ Upload to SharePoint")
+            if st.button("Upload Documents", use_container_width=True, type="secondary"):
+                upload_document_to_sharepoint()
     
     # Show SOW Details
     if st.session_state.get('sow_saved') and st.session_state.get('current_sow_data'):
@@ -1562,72 +1899,198 @@ def show_download_section():
         with col2:
             st.metric("Status", st.session_state.current_sow_data.get("Status", ""))
             st.metric("Created By", st.session_state.user_email)
-            # FIX: Safely display TotalValue
             try:
                 total_value = st.session_state.current_sow_data.get("TotalValue", 0)
-                # If it's already a number
                 if isinstance(total_value, (int, float)):
                     st.metric("Total Value", f"${total_value:,.2f}")
                 else:
-                    # Try to convert to float
                     total_value_float = float(str(total_value))
                     st.metric("Total Value", f"${total_value_float:,.2f}")
             except (ValueError, TypeError):
-                # If conversion fails, show raw value
                 st.metric("Total Value", str(st.session_state.current_sow_data.get("TotalValue", "0")))
 
 def upload_document_to_sharepoint():
-    """Upload document to SharePoint"""
-    with st.spinner("Uploading document to SharePoint..."):
+    """Upload documents to SharePoint - UPDATED with separate folders"""
+    with st.spinner("Uploading documents to SharePoint..."):
         try:
             sharepoint_service = st.session_state.sharepoint_service
             form_data = st.session_state.form_data
+            project_type = form_data.get("option", "")
             
-            # Prepare metadata - must match Power Automate schema
-            metadata = {
+            upload_success = []
+            upload_failed = []
+            
+            # ===== 1. UPLOAD WORD DOCUMENT =====
+            st.info(f"📤 Uploading Word document: {st.session_state.generated_file_path}")
+            
+            word_metadata = {
                 "sow_number": form_data.get("sow_num", ""),
                 "sow_name": form_data.get("sow_name", ""),
                 "client": form_data.get("Client_Name", ""),
                 "created_by": st.session_state.user_email,
                 "status": Config.STATUS_PENDING,
-                "project_type": form_data.get("option", "")
+                "project_type": project_type
             }
             
-            st.info(f"📤 Uploading: {st.session_state.generated_file_path}")
-            
-            # Upload document with corrected payload structure
-            upload_result = sharepoint_service.upload_document(
+            # Upload Word document to main SOWs folder
+            word_result = sharepoint_service.upload_document(
                 st.session_state.file_data,
                 st.session_state.generated_file_path,
-                metadata
+                word_metadata
             )
             
-            if upload_result["success"]:
+            if word_result["success"]:
+                upload_success.append(f"Word document to 'SOWs' folder")
+            else:
+                upload_failed.append(f"Word document: {word_result.get('message', 'Unknown error')}")
+            
+            # ===== 2. UPLOAD EXCEL FILES =====
+            # Determine folder based on project type
+            if project_type == "Fixed Fee" and hasattr(st.session_state, 'fixed_fee_excel_data'):
+                excel_folder = "Fixed_Fee_Milestones"  # Separate folder for Fixed Fee Excel files
+                st.info(f"📊 Uploading milestone Excel to '{excel_folder}' folder: {st.session_state.fixed_fee_excel_name}")
+                
+                excel_metadata = {
+                    "sow_number": form_data.get("sow_num", ""),
+                    "sow_name": form_data.get("sow_name", ""),
+                    "client": form_data.get("Client_Name", ""),
+                    "created_by": st.session_state.user_email,
+                    "status": Config.STATUS_PENDING,
+                    "project_type": project_type,
+                    "excel_type": "Milestone Payments"
+                }
+                
+                # Create a custom Power Automate call for Excel uploads
+                excel_result = upload_excel_to_sharepoint_folder(
+                    sharepoint_service,
+                    st.session_state.fixed_fee_excel_data,
+                    st.session_state.fixed_fee_excel_name,
+                    excel_metadata,
+                    excel_folder
+                )
+                
+                if excel_result["success"]:
+                    upload_success.append(f"Milestone Excel to '{excel_folder}' folder")
+                else:
+                    upload_failed.append(f"Milestone Excel: {excel_result.get('message', 'Unknown error')}")
+            
+            elif project_type == "T&M" and hasattr(st.session_state, 'tm_excel_data'):
+                excel_folder = "TM_Resources"  # Separate folder for T&M Excel files
+                st.info(f"👥 Uploading resource Excel to '{excel_folder}' folder: {st.session_state.tm_excel_name}")
+                
+                excel_metadata = {
+                    "sow_number": form_data.get("sow_num", ""),
+                    "sow_name": form_data.get("sow_name", ""),
+                    "client": form_data.get("Client_Name", ""),
+                    "created_by": st.session_state.user_email,
+                    "status": Config.STATUS_PENDING,
+                    "project_type": project_type,
+                    "excel_type": "Resource Details"
+                }
+                
+                excel_result = upload_excel_to_sharepoint_folder(
+                    sharepoint_service,
+                    st.session_state.tm_excel_data,
+                    st.session_state.tm_excel_name,
+                    excel_metadata,
+                    excel_folder
+                )
+                
+                if excel_result["success"]:
+                    upload_success.append(f"Resource Excel to '{excel_folder}' folder")
+                else:
+                    upload_failed.append(f"Resource Excel: {excel_result.get('message', 'Unknown error')}")
+            
+            # ===== 3. SHOW RESULTS =====
+            if upload_success:
+                st.success("✅ Upload Summary:")
+                for success_item in upload_success:
+                    st.success(f"   ✓ {success_item}")
+                
+                # Create a summary of what was uploaded where
+                st.info("📁 **Files are stored in separate SharePoint folders:**")
+                st.info(f"   • Word Document: 'SOWs' folder")
+                if project_type == "Fixed Fee":
+                    st.info(f"   • Excel File: 'Fixed_Fee_Milestones' folder")
+                elif project_type == "T&M":
+                    st.info(f"   • Excel File: 'TM_Resources' folder")
+            
+            if upload_failed:
+                st.error("❌ Failed Uploads:")
+                for failure in upload_failed:
+                    st.error(f"   ✗ {failure}")
+            
+            if upload_success:
                 st.session_state.document_uploaded = True
-                st.success("✅ Document uploaded to SharePoint successfully!")
                 st.balloons()
                 
                 # Reset after successful upload
-                time.sleep(2)
+                time.sleep(3)
                 reset_all_fields()
                 st.rerun()
             else:
-                # Show detailed error
-                st.error(f"❌ Upload failed: {upload_result.get('message', 'Unknown error')}")
+                st.error("❌ All uploads failed!")
                 
-                # Show debug info
-                with st.expander("Debug Info"):
-                    st.write("**File Info:**")
-                    st.write(f"- Name: {st.session_state.generated_file_path}")
-                    st.write(f"- Size: {len(st.session_state.file_data)} bytes")
-                    st.write("**Metadata:**")
-                    st.json(metadata)
-                    
         except Exception as e:
-            st.error(f"❌ Error uploading document: {str(e)}")
+            st.error(f"❌ Error uploading documents: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
 
+def upload_excel_to_sharepoint_folder(sharepoint_service, file_data, file_name, metadata, folder_name):
+    """Upload Excel file to specific SharePoint folder"""
+    try:
+        # Convert to Base64
+        file_base64 = base64.b64encode(file_data).decode('utf-8')
+        
+        print(f"🔍 DEBUG: Uploading Excel to '{folder_name}' folder")
+        print(f"  - File: {file_name}")
+        print(f"  - Folder: {folder_name}")
+        print(f"  - Metadata: {metadata}")
+        
+        # Build payload for specific folder
+        payload = {
+            "operation": "upload_document",
+            "library_name": "Onboarding Details",  # Main library
+            "folder_path": folder_name,  # Different folder for Excel files
+            "file_name": file_name,
+            "file_content": file_base64,
+            "metadata": {
+                "sow_number": metadata.get("sow_number", ""),
+                "sow_name": metadata.get("sow_name", ""),
+                "client": metadata.get("client", ""),
+                "created_by": metadata.get("created_by", ""),
+                "status": metadata.get("status", ""),
+                "project_type": metadata.get("project_type", ""),
+                "excel_type": metadata.get("excel_type", ""),
+                "upload_timestamp": datetime.now().isoformat()
+            }
+        }
+        
+        # Call Power Automate
+        result = sharepoint_service._call_power_automate("upload_document", payload)
+        
+        if result:
+            print(f"✅ SUCCESS: Excel uploaded to '{folder_name}' folder")
+            return {
+                "success": True,
+                "data": result,
+                "message": f"Excel uploaded to '{folder_name}' folder successfully"
+            }
+        
+        return {
+            "success": False,
+            "message": f"No response from Power Automate for '{folder_name}' folder"
+        }
+                
+    except Exception as e:
+        print(f"❌ ERROR in upload_excel_to_sharepoint_folder: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Fatal error: {str(e)}"
+        }
 # ============================================================================
 # PAGE 2: APPROVAL DASHBOARD
 # ============================================================================
