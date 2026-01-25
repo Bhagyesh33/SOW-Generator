@@ -585,29 +585,64 @@ def save_to_local_csv(sow_data):
         return False
 
 def prepare_sow_data_for_storage(form_data, document_url=""):
-    """Prepare complete SOW data for SharePoint storage"""
+    """Prepare complete SOW data for SharePoint storage - FIXED"""
     
     def convert_date(obj):
         if isinstance(obj, (date, datetime)):
             return obj.isoformat()
         return obj
     
-    # Calculate total value
+    # Calculate total value - FIXED LOGIC
     def calculate_total_value():
         try:
-            if form_data.get("option") == "T&M":
-                return float(form_data.get("currency_value", 0))
-            elif form_data.get("option") == "Fixed Fee":
-                fees = form_data.get("Fees_al", 0)
-                return float(fees) if fees not in ["", None] else 0.0
-            elif form_data.get("option") == "Change Order":
+            project_type = form_data.get("option", "")
+            
+            if project_type == "T&M":
+                # Get from form_data if available
+                if "currency_value" in form_data:
+                    return float(form_data.get("currency_value", 0))
+                # Or calculate from resources_df
+                resources_df = form_data.get("resources_df")
+                if resources_df is not None and not resources_df.empty:
+                    if "Estimated $" in resources_df.columns:
+                        return float(resources_df["Estimated $"].sum())
+                return 0.0
+                
+            elif project_type == "Fixed Fee":
+                # Check both possible keys
+                if "Fees_al" in form_data:
+                    fees = form_data.get("Fees_al", 0)
+                    return float(fees) if fees not in ["", None] else 0.0
+                return 0.0
+                
+            elif project_type == "Change Order":
+                # Get difference directly
                 diff = form_data.get("difference", 0)
-                return float(diff) if diff not in ["", None] else 0.0
+                if diff:
+                    return float(diff)
+                # Or calculate it
+                fees_co = float(form_data.get("Fees_co", 0))
+                fees_sow = float(form_data.get("Fees_sow", 0))
+                return fees_co - fees_sow
+                
             return 0.0
-        except (ValueError, KeyError):
+        except Exception as e:
+            print(f"❌ Error in calculate_total_value: {e}")
             return 0.0
     
     total_value = calculate_total_value()
+    
+    # Debug print to check
+    print(f"🔍 DEBUG: Total Value Calculation Result:")
+    print(f"  - Project Type: {form_data.get('option')}")
+    print(f"  - Total Value: {total_value}")
+    print(f"  - Form data keys: {list(form_data.keys())}")
+    
+    # Check specific keys for debugging
+    if form_data.get("option") == "Fixed Fee":
+        print(f"  - Fees_al in form_data: {'Fees_al' in form_data}")
+        if 'Fees_al' in form_data:
+            print(f"  - Fees_al value: {form_data['Fees_al']}")
     
     # Calculate work days
     try:
@@ -624,38 +659,52 @@ def prepare_sow_data_for_storage(form_data, document_url=""):
         "template_used": Config.TEMPLATE_MAPPING.get(form_data.get("option", ""), "unknown"),
         "complete_scope": form_data.get("scope_text", ""),
         "complete_services": form_data.get("ser_del", ""),
-        "project_specific": {}
+        "project_specific": {},
+        "total_value_debug": total_value
     }
     
-    # Add project-specific data (keep your existing code here)
+    # Add project-specific data
+    if form_data.get("option") == "T&M":
+        resources_df = form_data.get("resources_df")
+        if resources_df is not None and not resources_df.empty:
+            additional_data["project_specific"]["resources"] = resources_df.to_dict(orient="records")
+            if "Estimated $" in resources_df.columns:
+                additional_data["project_specific"]["resources_total"] = resources_df["Estimated $"].sum()
     
-    # FIX: DocumentURL must be a valid URI format, not empty string
-    # If no document_url provided, use a placeholder or your SharePoint site URL
+    elif form_data.get("option") == "Fixed Fee":
+        fees_al = form_data.get("Fees_al", 0)
+        additional_data["project_specific"]["fees"] = fees_al
+        
+    elif form_data.get("option") == "Change Order":
+        additional_data["project_specific"].update({
+            "change_order": form_data.get("Change", ""),
+            "fees_co": form_data.get("Fees_co", 0),
+            "fees_sow": form_data.get("Fees_sow", 0),
+            "difference": form_data.get("difference", 0)
+        })
+    
+    # FIX: Ensure we have a valid document URL
     if not document_url or document_url == "":
-        # Use your SharePoint site URL as placeholder
         document_url = "https://cloudlabsit.sharepoint.com/sites/OnboardingDetails"
     
-    # FIX: Ensure TotalValue is stored as a number, not a formatted string
-    # Build SharePoint record with proper URI format
+    # Build SharePoint record - FIXED TotalValue field
     sow_record = {
         "Title": form_data.get("sow_name", ""),
         "SOWNumber": form_data.get("sow_num", ""),
         "SOWName": form_data.get("sow_name", ""),
-        # Use simple string format for choice fields
         "Client": form_data.get("Client_Name", ""),
         "ProjectType": form_data.get("option", ""),
         "Status": Config.STATUS_PENDING,
         "StartDate": convert_date(form_data.get("start_date", date.today())),
         "EndDate": convert_date(form_data.get("end_date", date.today())),
         "GeneratedDate": datetime.now().strftime("%Y-%m-%d"),
-        # FIX: Store TotalValue as a number, not formatted string
-        "TotalValue": total_value,  # This is already a float from calculate_total_value()
+        # FIX: Ensure TotalValue is properly set
+        "TotalValue": float(total_value) if total_value else 0.0,
         "CreatedBy": st.session_state.user_email,
-        "ScopeSummary": form_data.get("scope_text", "")[:1000],
-        "ServicesDeliverables": form_data.get("ser_del", "")[:1000],
+        "ScopeSummary": form_data.get("scope_text", "")[:1000] if form_data.get("scope_text") else "",
+        "ServicesDeliverables": form_data.get("ser_del", "")[:1000] if form_data.get("ser_del") else "",
         "AdditionalPersonnel": form_data.get("additional_personnel", ""),
         "WorkDays": work_days,
-        # FIXED: Provide valid URI
         "DocumentURL": document_url,
         "FileName": f"{form_data.get('sow_num', '')} - {form_data.get('sow_name', '')}.docx",
         "PMClient": form_data.get("pm_client", ""),
@@ -664,6 +713,10 @@ def prepare_sow_data_for_storage(form_data, document_url=""):
         "ManagementServiceProvider": form_data.get("mg_sp", ""),
         "AdditionalData": json.dumps(additional_data, default=str)
     }
+    
+    # Final debug
+    print(f"🔍 FINAL SOW RECORD - TotalValue: {sow_record['TotalValue']}")
+    print(f"  - Type: {type(sow_record['TotalValue'])}")
     
     return sow_record
 
@@ -1237,7 +1290,7 @@ def page_sow_generator():
 def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, end_date,
                          scope_text, ser_del, pm_client, pm_sp, mg_client, mg_sp,
                          additional_personnel, resources_df, milestone_df, template_manager):
-    """Generate SOW document"""
+    """Generate SOW document - FIXED VERSION"""
     
     with st.spinner("Generating SOW document..."):
         try:
@@ -1245,6 +1298,29 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             generated_date = datetime.today().strftime("%B %d, %Y")
             start_str = start_date.strftime("%B %d, %Y")
             end_str = end_date.strftime("%B %d, %Y")
+            
+            # Get financial values BEFORE creating context
+            # For T&M projects
+            currency_value = 0.0
+            if option == "T&M" and resources_df is not None:
+                if "Estimated $" in resources_df.columns:
+                    currency_value = resources_df["Estimated $"].sum()
+            
+            # For Fixed Fee projects - IMPORTANT: Get the Fees_al value from session state
+            Fees_al_value = 0.0
+            if option == "Fixed Fee":
+                # Try to get the Fees_al value from the current form
+                Fees_al_value = st.session_state.get(f"fees_al_{st.session_state.reset_trigger}", 0.0)
+            
+            # For Change Order projects
+            difference_value = 0.0
+            Fees_co_value = 0.0
+            Fees_sow_value = 0.0
+            if option == "Change Order":
+                # Try to get values from session state
+                difference_value = Fees_co = st.session_state.get(f"fees_co_{st.session_state.reset_trigger}", 10000.0) - st.session_state.get(f"fees_sow_{st.session_state.reset_trigger}", 5000.0)
+                Fees_co_value = st.session_state.get(f"fees_co_{st.session_state.reset_trigger}", 10000.0)
+                Fees_sow_value = st.session_state.get(f"fees_sow_{st.session_state.reset_trigger}", 5000.0)
             
             # Prepare context based on project type
             context = {
@@ -1267,12 +1343,11 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             # Add project-specific data
             if option == "T&M" and resources_df is not None:
                 context["resources"] = resources_df.to_dict(orient="records")
-                currency_value = resources_df["Estimated $"].sum() if "Estimated $" in resources_df.columns else 0
                 context["currency_value"] = currency_value
                 context["currency_value_str"] = f"${currency_value:,.2f}"
             
             elif option == "Fixed Fee":
-                context["Fees"] = float(locals().get('Fees_al', 0))
+                context["Fees"] = Fees_al_value
                 if milestone_df is not None:
                     context["milestones"] = milestone_df.to_dict(orient="records")
                     total_payment = milestone_df["net_pay"].sum() if "net_pay" in milestone_df.columns else 0
@@ -1280,12 +1355,12 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             
             elif option == "Change Order":
                 context.update({
-                    "Change": locals().get('Change', ''),
-                    "Fees_co": locals().get('Fees_co', 0),
-                    "Fees_sow": locals().get('Fees_sow', 0),
-                    "difference": locals().get('difference', 0),
-                    "sow_str": locals().get('sow_start_date', date.today()).strftime("%B %d, %Y"),
-                    "sow_end": locals().get('sow_end_date', date.today()).strftime("%B %d, %Y")
+                    "Change": st.session_state.get(f"change_{st.session_state.reset_trigger}", "CO-001"),
+                    "Fees_co": Fees_co_value,
+                    "Fees_sow": Fees_sow_value,
+                    "difference": difference_value,
+                    "sow_str": st.session_state.get(f"sow_start_{st.session_state.reset_trigger}", date.today()).strftime("%B %d, %Y"),
+                    "sow_end": st.session_state.get(f"sow_end_{st.session_state.reset_trigger}", date.today()).strftime("%B %d, %Y")
                 })
             
             # Get template
@@ -1305,8 +1380,8 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             st.session_state.file_data = buffer.getvalue()
             st.session_state.generated_file_path = file_name
             
-            # Store form data
-            st.session_state.form_data = {
+            # Store form data with ALL financial values
+            form_data = {
                 "option": option,
                 "sow_num": sow_num,
                 "sow_name": sow_name,
@@ -1324,17 +1399,33 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
                 "milestone_df": milestone_df
             }
             
-            if option == "Fixed Fee":
-                st.session_state.form_data["Fees_al"] = locals().get('Fees_al', 0)
+            # Add financial values based on project type
+            if option == "T&M":
+                form_data["currency_value"] = currency_value
+            elif option == "Fixed Fee":
+                form_data["Fees_al"] = Fees_al_value
             elif option == "Change Order":
-                st.session_state.form_data.update({
-                    "Change": locals().get('Change', ''),
-                    "Fees_co": locals().get('Fees_co', 0),
-                    "Fees_sow": locals().get('Fees_sow', 0),
-                    "difference": locals().get('difference', 0),
-                    "sow_start_date": locals().get('sow_start_date', date.today()),
-                    "sow_end_date": locals().get('sow_end_date', date.today())
+                form_data.update({
+                    "Change": st.session_state.get(f"change_{st.session_state.reset_trigger}", "CO-001"),
+                    "Fees_co": Fees_co_value,
+                    "Fees_sow": Fees_sow_value,
+                    "difference": difference_value,
+                    "sow_start_date": st.session_state.get(f"sow_start_{st.session_state.reset_trigger}", date.today()),
+                    "sow_end_date": st.session_state.get(f"sow_end_{st.session_state.reset_trigger}", date.today())
                 })
+            
+            # Store form_data in session state
+            st.session_state.form_data = form_data
+            
+            # Debug: Print what we're storing
+            print(f"🔍 DEBUG: Form data stored:")
+            print(f"  - Option: {option}")
+            if option == "Fixed Fee":
+                print(f"  - Fees_al: {Fees_al_value}")
+            elif option == "T&M":
+                print(f"  - currency_value: {currency_value}")
+            elif option == "Change Order":
+                print(f"  - difference: {difference_value}")
             
             st.success("✅ SOW document generated successfully!")
             st.session_state.should_increment_on_download = True
@@ -1353,8 +1444,17 @@ def auto_save_to_sharepoint():
             sharepoint_service = st.session_state.sharepoint_service
             form_data = st.session_state.form_data
             
+            # Debug form data
+            debug_form_data(form_data)
+            
             # Prepare SOW record
             sow_record = prepare_sow_data_for_storage(form_data)
+            
+            # Debug the sow_record
+            print(f"🔍 SOW RECORD BEING SENT:")
+            print(f"  - TotalValue: {sow_record.get('TotalValue')}")
+            print(f"  - Type of TotalValue: {type(sow_record.get('TotalValue'))}")
+            print(f"  - Full record keys: {list(sow_record.keys())}")
             
             # Save to SharePoint
             save_result = sharepoint_service.save_sow_record(sow_record)
@@ -1363,6 +1463,10 @@ def auto_save_to_sharepoint():
                 st.session_state.sow_saved = True
                 st.session_state.current_sow_data = sow_record
                 st.success("✅ SOW data saved to SharePoint!")
+                
+                # Show the value that was saved
+                if sow_record.get('TotalValue', 0) > 0:
+                    st.info(f"💵 **Total Value Saved:** ${sow_record['TotalValue']:,.2f}")
                 
                 # Also save locally as backup
                 save_to_local_csv(sow_record)
@@ -1383,6 +1487,40 @@ def auto_save_to_sharepoint():
             except:
                 pass
 
+def debug_form_data(form_data):
+    """Debug function to check form data"""
+    print("🔍 DEBUG FORM DATA STRUCTURE:")
+    print(f"Keys: {list(form_data.keys())}")
+    
+    for key, value in form_data.items():
+        if key in ['resources_df', 'milestone_df']:
+            print(f"  - {key}: {'DataFrame' if value is not None else 'None'}")
+            if value is not None:
+                print(f"    Shape: {value.shape if hasattr(value, 'shape') else 'N/A'}")
+                print(f"    Columns: {list(value.columns) if hasattr(value, 'columns') else 'N/A'}")
+        else:
+            print(f"  - {key}: {value} (Type: {type(value)})")
+    
+    # Check for financial values
+    print("\n🔍 FINANCIAL VALUES CHECK:")
+    print(f"  - Option: {form_data.get('option')}")
+    
+    if form_data.get('option') == 'T&M':
+        print(f"  - currency_value in form_data: {'currency_value' in form_data}")
+        if 'currency_value' in form_data:
+            print(f"  - currency_value: {form_data['currency_value']}")
+    
+    elif form_data.get('option') == 'Fixed Fee':
+        print(f"  - Fees_al in form_data: {'Fees_al' in form_data}")
+        if 'Fees_al' in form_data:
+            print(f"  - Fees_al: {form_data['Fees_al']}")
+    
+    elif form_data.get('option') == 'Change Order':
+        print(f"  - difference in form_data: {'difference' in form_data}")
+        if 'difference' in form_data:
+            print(f"  - difference: {form_data['difference']}")
+
+            
 def show_download_section():
     """Show download and upload options"""
     st.divider()
