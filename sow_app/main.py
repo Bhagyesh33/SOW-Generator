@@ -133,6 +133,45 @@ section[data-testid="stSidebar"] {display: none !important;}
 .logout-btn:hover {
     background: rgba(255,255,255,0.2);
 }
+
+/* View/Edit button styling */
+.view-btn {
+    background-color: #4CAF50 !important;
+    color: white !important;
+    border: none !important;
+    padding: 5px 10px !important;
+    border-radius: 4px !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+}
+.view-btn:hover {
+    background-color: #45a049 !important;
+}
+
+/* Approval section styling */
+.approval-section {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+    border-left: 5px solid #0a0f1e;
+}
+.approve-btn {
+    background-color: #28a745 !important;
+    color: white !important;
+    border: none !important;
+}
+.reject-btn {
+    background-color: #dc3545 !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Action buttons in table */
+.action-cell {
+    display: flex;
+    gap: 5px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -143,10 +182,11 @@ class Config:
     # ======== UPDATE THESE URLs WITH YOUR POWER AUTOMATE FLOW URLs ========
     POWER_AUTOMATE_URLS = {
         "save_record": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/53097801090042b2b7fa1f3f9bfac9e2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ZX_J0dUOdGpGt2DcmEAm_qFzLdPXfFv6fkzOsQvm-_w",
-        "get_records": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/78733188f09f4ab19455d4f5ec755296/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=f4rvtDGpIxjXF7O1UGLK4KUtnsP7Sy_EuXswX6ZdU-o",  # Add your Get Records flow URL here
-        "update_status": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/9f22dfef2dd0403fb780810cc3c54b45/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=EDsK9ooYU6bXx7QZNQhwlKPHXAMPMHpPihDQea225Ys",  # Add your Update Status flow URL here
+        "get_records": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/78733188f09f4ab19455d4f5ec755296/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=f4rvtDGpIxjXF7O1UGLK4KUtnsP7Sy_EuXswX6ZdU-o",
+        "update_status": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/9f22dfef2dd0403fb780810cc3c54b45/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=EDsK9ooYU6bXx7QZNQhwlKPHXAMPMHpPihDQea225Ys",
         "upload_document": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/c5172488c3244b6aa59242f0562dbb10/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=MV-4UfPewDgKk1QuVS5-z0_yUVwAKQz4d_aP9S3qB0c",
-        "get_document": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4e3f51632a5d4db79976427be5a54b6b/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=3Rgaj1vUDDydVP8x7jEbrCzBDDZ_r_N7aKaYYnisAok"  # Add your Get Document flow URL here
+        "get_document": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4e3f51632a5d4db79976427be5a54b6b/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=3Rgaj1vUDDydVP8x7jEbrCzBDDZ_r_N7aKaYYnisAok",
+        "get_sow_details": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/78733188f09f4ab19455d4f5ec755296/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=f4rvtDGpIxjXF7O1UGLK4KUtnsP7Sy_EuXswX6ZdU-o"
     }
     
     # SharePoint Document Libraries
@@ -166,7 +206,7 @@ class Config:
     
     # Login credentials
     LEGAL_USER_EMAIL = "legal@cloudlabsit.com"
-    COMMON_PASSWORD = "CloudLabs@123"  # Common password for all users
+    # COMMON_PASSWORD = "CloudLabs@123"  # Common password for all users
     
     # Legal team emails (for approval dashboard access)
     LEGAL_TEAM = ["legal@cloudlabsit.com", "admin@cloudlabsit.com"]
@@ -349,6 +389,28 @@ class SharePointService:
             "message": "No records found or flow not configured"
         }
     
+    def get_sow_by_id(self, item_id):
+        """Get specific SOW by ID from SharePoint"""
+        payload = {
+            "operation": "get_item_by_id",
+            "list_name": self.config.SHAREPOINT_LIST,
+            "item_id": str(item_id)
+        }
+        
+        result = self._call_power_automate("get_sow_details", payload)
+        
+        if result and "item" in result:
+            return {
+                "success": True,
+                "data": result["item"],
+                "message": "SOW retrieved successfully"
+            }
+        
+        return {
+            "success": False,
+            "message": "Failed to retrieve SOW"
+        }
+    
     def update_sow_status(self, item_id, status, comments="", approver_email=""):
         """Update SOW status in SharePoint"""
         payload = {
@@ -485,7 +547,7 @@ class SharePointService:
         except Exception as e:
             print(f"❌ Error getting document: {str(e)}")
             return None
-        
+
 # ============================================================================
 # EXCEL EXPORTER CLASS
 # ============================================================================
@@ -742,7 +804,20 @@ def init_session_state():
         'sow_saved': False,
         'document_uploaded': False,
         'form_data': {},
-        'is_authenticated': False
+        'is_authenticated': False,
+        # NEW: For approval dashboard persistence
+        'sow_dataframe': None,
+        'selected_sow_for_download': None,
+        'download_triggered': False,
+        'document_bytes': None,
+        'document_filename': None,
+        # NEW: For SOW view/edit mode
+        'edit_sow_mode': False,
+        'edit_sow_data': None,
+        'edit_sow_id': None,
+        'edit_sow_status': None,
+        'edit_sow_comments': "",
+        'viewing_for_approval': False
     }
     
     for key, value in defaults.items():
@@ -797,7 +872,9 @@ def reset_all_fields():
     """Reset form fields"""
     keys_to_keep = [
         'user_email', 'user_role', 'sharepoint_service', 
-        'sow_saved', 'document_uploaded', 'is_authenticated'
+        'sow_saved', 'document_uploaded', 'is_authenticated',
+        'edit_sow_mode', 'edit_sow_data', 'edit_sow_id',
+        'edit_sow_status', 'edit_sow_comments', 'viewing_for_approval'
     ]
     
     keys_to_remove = [key for key in st.session_state.keys() 
@@ -917,6 +994,30 @@ def prepare_sow_data_for_storage(form_data, document_url=""):
         fees_al = form_data.get("Fees_al", 0)
         additional_data["project_specific"]["fees"] = fees_al
         
+        # ✅ ADD THIS: Save milestone data
+        milestone_df = form_data.get("milestone_df")
+        if milestone_df is not None and not milestone_df.empty:
+            # Convert DataFrame to list of dictionaries
+            milestones_list = milestone_df.to_dict(orient="records")
+            additional_data["project_specific"]["milestones"] = milestones_list
+            
+            # Calculate and store total
+            if "net_pay" in milestone_df.columns:
+                total_milestone_payment = milestone_df["net_pay"].sum()
+                additional_data["project_specific"]["milestone_total"] = float(total_milestone_payment)
+            
+            print(f"✅ DEBUG: Saved {len(milestones_list)} milestones to project_specific")
+        else:
+            print("⚠️ DEBUG: No milestone_df found in form_data for Fixed Fee")
+            
+            # Save milestone data if available
+            milestone_df = form_data.get("milestone_df")
+            if milestone_df is not None and not milestone_df.empty:
+                # Convert the DataFrame to a list of dictionaries for storage
+                milestones_list = milestone_df.to_dict(orient="records")
+                additional_data["project_specific"]["milestones"] = milestones_list
+                additional_data["project_specific"]["milestone_total"] = milestone_df["net_pay"].sum() if "net_pay" in milestone_df.columns else 0
+        
     elif form_data.get("option") == "Change Order":
         additional_data["project_specific"].update({
             "change_order": form_data.get("Change", ""),
@@ -965,8 +1066,11 @@ def prepare_sow_data_for_storage(form_data, document_url=""):
 # ============================================================================
 # LOGIN SYSTEM
 # ============================================================================
+# ============================================================================
+# LOGIN SYSTEM
+# ============================================================================
 def login_page():
-    """Display login page"""
+    """Display login page - No password required"""
     st.markdown("""
     <div class="login-container">
         <div class="login-header">
@@ -984,17 +1088,12 @@ def login_page():
     
     with col2:
         email = st.text_input("Email", placeholder="Enter your email")
-        password = st.text_input("Password", type="password", placeholder="Enter common password")
         
         login_btn = st.button("Login", type="primary", use_container_width=True)
         
         if login_btn:
             if not email:
                 st.error("Please enter your email")
-            elif not password:
-                st.error("Please enter password")
-            elif password != Config.COMMON_PASSWORD:
-                st.error("Invalid password. Please use the common password.")
             else:
                 # Set user session
                 st.session_state.is_authenticated = True
@@ -1012,7 +1111,7 @@ def login_page():
     
     # Information
     st.markdown("---")
-    st.info("**Note:** All users share the same password. Legal team access is granted only to specific emails.")
+    st.info("**Note:** Just enter your email to access the application. Legal team access is granted only to specific emails.")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1049,9 +1148,6 @@ def render_header():
 
 # ============================================================================
 # TEMPLATE MANAGEMENT
-# ============================================================================
-# ============================================================================
-# TEMPLATE MANAGEMENT - UPDATED FOR STREAMLIT CLOUD
 # ============================================================================
 class TemplateManager:
     def __init__(self):
@@ -1191,36 +1287,106 @@ class TemplateManager:
         
         return self.create_default_template(project_type, template_name)
 
+
+
+def load_sow_data_for_edit_mode(sow_data):
+    """Load SOW data into session state for edit mode"""
+    try:
+        # Parse additional data
+        additional_data = {}
+        try:
+            additional_data = json.loads(sow_data.get("AdditionalData", "{}"))
+        except:
+            additional_data = {}
+        
+        # Extract resources for T&M projects
+        if sow_data.get("ProjectType") == "T&M":
+            resources_list = additional_data.get("project_specific", {}).get("resources", [])
+            if resources_list:
+                resources_df = pd.DataFrame(resources_list)
+                st.session_state.edit_resources_df = resources_df
+        
+        # Extract milestones for Fixed Fee projects
+        elif sow_data.get("ProjectType") == "Fixed Fee":
+            milestones_list = additional_data.get("project_specific", {}).get("milestones", [])
+            if milestones_list:
+                milestone_df = pd.DataFrame(milestones_list)
+                st.session_state.edit_milestone_df = milestone_df
+        
+        return True
+    except Exception as e:
+        print(f"Error loading SOW data for edit mode: {str(e)}")
+        return False
 # ============================================================================
-# PAGE 1: SOW GENERATOR
+# PAGE 1: SOW GENERATOR (UPDATED WITH EDIT MODE)
 # ============================================================================
 def page_sow_generator():
-    """Main SOW generation page"""
+    """Main SOW generation page - Updated with edit mode"""
+    
+    # Check if we're in edit mode (viewing for approval)
+    if st.session_state.edit_sow_mode:
+        st.markdown("<div class='approval-section'>", unsafe_allow_html=True)
+        st.title("👁️ View SOW for Approval")
+        
+        # Display SOW info
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("SOW Number", st.session_state.edit_sow_data.get("SOWNumber", ""))
+        with col2:
+            st.metric("Status", st.session_state.edit_sow_data.get("Status", ""))
+        with col3:
+            st.metric("Created By", st.session_state.edit_sow_data.get("CreatedBy", ""))
+        
+        st.divider()
+    
     st.markdown("<br>", unsafe_allow_html=True)
     
     template_manager = TemplateManager()
     
     # Show template info
-    st.info("📝 **Templates are automatically selected based on project type**")
+    if not st.session_state.edit_sow_mode:
+        st.info("📝 **Templates are automatically selected based on project type**")
     
     # ========== BASIC INFORMATION ==========
     st.subheader("📋 Basic Information")
     col1, col2 = st.columns(2)
     
     with col1:
-        Client_Name = st.selectbox(
-            "Select Client",
-            ("BSC", "Abiomed", "Cognex", "Itaros", "Other"),
-            key=f"client_{st.session_state.reset_trigger}",
-            help="Select the client for this SOW"
-        )
-        
-        option = st.selectbox(
-            "Select Project Type",
-            ("Fixed Fee", "T&M", "Change Order"),
-            key=f"project_type_{st.session_state.reset_trigger}",
-            help="Select the project type to automatically choose the template"
-        )
+        # If in edit mode, use existing data, otherwise create new form
+        if st.session_state.edit_sow_mode:
+            Client_Name = st.selectbox(
+                "Select Client",
+                ("BSC", "Abiomed", "Cognex", "Itaros", "Other"),
+                key=f"client_{st.session_state.reset_trigger}",
+                help="Select the client for this SOW",
+                index=["BSC", "Abiomed", "Cognex", "Itaros", "Other"].index(
+                    st.session_state.edit_sow_data.get("Client", "BSC")
+                ) if st.session_state.edit_sow_data.get("Client") in ["BSC", "Abiomed", "Cognex", "Itaros", "Other"] else 0
+            )
+            
+            option = st.selectbox(
+                "Select Project Type",
+                ("Fixed Fee", "T&M", "Change Order"),
+                key=f"project_type_{st.session_state.reset_trigger}",
+                help="Select the project type to automatically choose the template",
+                index=["Fixed Fee", "T&M", "Change Order"].index(
+                    st.session_state.edit_sow_data.get("ProjectType", "Fixed Fee")
+                ) if st.session_state.edit_sow_data.get("ProjectType") in ["Fixed Fee", "T&M", "Change Order"] else 0
+            )
+        else:
+            Client_Name = st.selectbox(
+                "Select Client",
+                ("BSC", "Abiomed", "Cognex", "Itaros", "Other"),
+                key=f"client_{st.session_state.reset_trigger}",
+                help="Select the client for this SOW"
+            )
+            
+            option = st.selectbox(
+                "Select Project Type",
+                ("Fixed Fee", "T&M", "Change Order"),
+                key=f"project_type_{st.session_state.reset_trigger}",
+                help="Select the project type to automatically choose the template"
+            )
         
         # Show which template will be used
         template_name = Config.TEMPLATE_MAPPING.get(option, "Unknown")
@@ -1228,47 +1394,94 @@ def page_sow_generator():
     
     with col2:
         # SOW Number generation
-        if option in ["T&M", "Fixed Fee"]:
-            auto_sow_num = get_next_sow_number()
+        if st.session_state.edit_sow_mode:
             sow_num = st.text_input(
                 "SOW Number",
-                value=f"SOW-{auto_sow_num}",
+                value=st.session_state.edit_sow_data.get("SOWNumber", ""),
                 key=f"sow_num_{st.session_state.reset_trigger}",
-                help="Auto-generated SOW number"
+                help="Auto-generated SOW number",
+                disabled=True  # Disable editing of SOW number in view mode
+            )
+            sow_name = st.text_input(
+                "SOW Name",
+                value=st.session_state.edit_sow_data.get("SOWName", ""),
+                key=f"sow_name_{st.session_state.reset_trigger}",
+                placeholder="Enter SOW name",
+                help="Enter a descriptive name for this SOW",
+                disabled=True  # Disable editing of SOW name in view mode
             )
         else:
-            sow_num = st.text_input(
-                "SOW Number",
-                value="",
-                key=f"sow_num_{st.session_state.reset_trigger}",
-                placeholder="Enter SOW number manually for Change Order",
-                help="Enter SOW number for Change Order"
+            if option in ["T&M", "Fixed Fee"]:
+                auto_sow_num = get_next_sow_number()
+                sow_num = st.text_input(
+                    "SOW Number",
+                    value=f"SOW-{auto_sow_num}",
+                    key=f"sow_num_{st.session_state.reset_trigger}",
+                    help="Auto-generated SOW number"
+                )
+            else:
+                sow_num = st.text_input(
+                    "SOW Number",
+                    value="",
+                    key=f"sow_num_{st.session_state.reset_trigger}",
+                    placeholder="Enter SOW number manually for Change Order",
+                    help="Enter SOW number for Change Order"
+                )
+            
+            sow_name = st.text_input(
+                "SOW Name",
+                key=f"sow_name_{st.session_state.reset_trigger}",
+                placeholder="Enter SOW name",
+                help="Enter a descriptive name for this SOW"
             )
-        
-        sow_name = st.text_input(
-            "SOW Name",
-            key=f"sow_name_{st.session_state.reset_trigger}",
-            placeholder="Enter SOW name",
-            help="Enter a descriptive name for this SOW"
-        )
     
     # ========== DATES ==========
     st.subheader("📅 Timeline")
     colA, colB = st.columns(2)
     
     with colA:
-        start_date = st.date_input(
-            "Start Date",
-            value=date.today(),
-            key=f"start_date_{st.session_state.reset_trigger}"
-        )
+        if st.session_state.edit_sow_mode:
+            # Parse date from stored data
+            start_date_str = st.session_state.edit_sow_data.get("StartDate", date.today().isoformat())
+            try:
+                start_date = datetime.fromisoformat(start_date_str).date()
+            except:
+                start_date = date.today()
+            
+            start_date = st.date_input(
+                "Start Date",
+                value=start_date,
+                key=f"start_date_{st.session_state.reset_trigger}",
+                disabled=True  # Disable editing in view mode
+            )
+        else:
+            start_date = st.date_input(
+                "Start Date",
+                value=date.today(),
+                key=f"start_date_{st.session_state.reset_trigger}"
+            )
     
     with colB:
-        end_date = st.date_input(
-            "End Date",
-            value=date.today() + timedelta(days=30),
-            key=f"end_date_{st.session_state.reset_trigger}"
-        )
+        if st.session_state.edit_sow_mode:
+            # Parse date from stored data
+            end_date_str = st.session_state.edit_sow_data.get("EndDate", (date.today() + timedelta(days=30)).isoformat())
+            try:
+                end_date = datetime.fromisoformat(end_date_str).date()
+            except:
+                end_date = date.today() + timedelta(days=30)
+            
+            end_date = st.date_input(
+                "End Date",
+                value=end_date,
+                key=f"end_date_{st.session_state.reset_trigger}",
+                disabled=True  # Disable editing in view mode
+            )
+        else:
+            end_date = st.date_input(
+                "End Date",
+                value=date.today() + timedelta(days=30),
+                key=f"end_date_{st.session_state.reset_trigger}"
+            )
     
     # Calculate and display working days
     workdays = networkdays(start_date, end_date)
@@ -1279,40 +1492,88 @@ def page_sow_generator():
         st.subheader("🔄 Change Order Details")
         colA, colB = st.columns(2)
         
+        # Parse additional data if in edit mode
+        additional_data = {}
+        if st.session_state.edit_sow_mode:
+            try:
+                additional_data = json.loads(st.session_state.edit_sow_data.get("AdditionalData", "{}"))
+            except:
+                additional_data = {}
+        
         with colA:
-            Change = st.text_input(
-                "Change Order Reference",
-                value="CO-001",
-                key=f"change_{st.session_state.reset_trigger}",
-                help="Change order reference number"
-            )
-            
-            sow_start_date = st.date_input(
-                "Original SOW Start Date",
-                value=date.today(),
-                key=f"sow_start_{st.session_state.reset_trigger}"
-            )
-            
-            Fees_co = st.number_input(
-                "Change Order Fees ($)",
-                value=10000.0,
-                step=1000.0,
-                key=f"fees_co_{st.session_state.reset_trigger}"
-            )
+            if st.session_state.edit_sow_mode:
+                Change = st.text_input(
+                    "Change Order Reference",
+                    value=additional_data.get("project_specific", {}).get("change_order", "CO-001"),
+                    key=f"change_{st.session_state.reset_trigger}",
+                    help="Change order reference number",
+                    disabled=True
+                )
+                
+                sow_start_date = st.date_input(
+                    "Original SOW Start Date",
+                    value=date.today(),
+                    key=f"sow_start_{st.session_state.reset_trigger}",
+                    disabled=True
+                )
+                
+                Fees_co = st.number_input(
+                    "Change Order Fees ($)",
+                    value=float(additional_data.get("project_specific", {}).get("fees_co", 10000.0)),
+                    step=1000.0,
+                    key=f"fees_co_{st.session_state.reset_trigger}",
+                    disabled=True
+                )
+            else:
+                Change = st.text_input(
+                    "Change Order Reference",
+                    value="CO-001",
+                    key=f"change_{st.session_state.reset_trigger}",
+                    help="Change order reference number"
+                )
+                
+                sow_start_date = st.date_input(
+                    "Original SOW Start Date",
+                    value=date.today(),
+                    key=f"sow_start_{st.session_state.reset_trigger}"
+                )
+                
+                Fees_co = st.number_input(
+                    "Change Order Fees ($)",
+                    value=10000.0,
+                    step=1000.0,
+                    key=f"fees_co_{st.session_state.reset_trigger}"
+                )
         
         with colB:
-            sow_end_date = st.date_input(
-                "Original SOW End Date",
-                value=date.today() + timedelta(days=30),
-                key=f"sow_end_{st.session_state.reset_trigger}"
-            )
-            
-            Fees_sow = st.number_input(
-                "Original SOW Fees ($)",
-                value=5000.0,
-                step=1000.0,
-                key=f"fees_sow_{st.session_state.reset_trigger}"
-            )
+            if st.session_state.edit_sow_mode:
+                sow_end_date = st.date_input(
+                    "Original SOW End Date",
+                    value=date.today() + timedelta(days=30),
+                    key=f"sow_end_{st.session_state.reset_trigger}",
+                    disabled=True
+                )
+                
+                Fees_sow = st.number_input(
+                    "Original SOW Fees ($)",
+                    value=float(additional_data.get("project_specific", {}).get("fees_sow", 5000.0)),
+                    step=1000.0,
+                    key=f"fees_sow_{st.session_state.reset_trigger}",
+                    disabled=True
+                )
+            else:
+                sow_end_date = st.date_input(
+                    "Original SOW End Date",
+                    value=date.today() + timedelta(days=30),
+                    key=f"sow_end_{st.session_state.reset_trigger}"
+                )
+                
+                Fees_sow = st.number_input(
+                    "Original SOW Fees ($)",
+                    value=5000.0,
+                    step=1000.0,
+                    key=f"fees_sow_{st.session_state.reset_trigger}"
+                )
         
         difference = Fees_co - Fees_sow
         st.info(f"💰 **Difference: ${difference:,.2f}**")
@@ -1322,208 +1583,449 @@ def page_sow_generator():
     colA, colB = st.columns(2)
     
     with colA:
-        pm_client = st.text_input(
-            "Client (Project Management)",
-            key=f"pm_client_{st.session_state.reset_trigger}",
-            placeholder="Client project manager name"
-        )
-        
-        mg_client = st.text_input(
-            "Client (Management)",
-            key=f"mg_client_{st.session_state.reset_trigger}",
-            placeholder="Client management contact"
-        )
+        if st.session_state.edit_sow_mode:
+            pm_client = st.text_input(
+                "Client (Project Management)",
+                value=st.session_state.edit_sow_data.get("PMClient", ""),
+                key=f"pm_client_{st.session_state.reset_trigger}",
+                placeholder="Client project manager name",
+                disabled=True
+            )
+            
+            mg_client = st.text_input(
+                "Client (Management)",
+                value=st.session_state.edit_sow_data.get("ManagementClient", ""),
+                key=f"mg_client_{st.session_state.reset_trigger}",
+                placeholder="Client management contact",
+                disabled=True
+            )
+        else:
+            pm_client = st.text_input(
+                "Client (Project Management)",
+                key=f"pm_client_{st.session_state.reset_trigger}",
+                placeholder="Client project manager name"
+            )
+            
+            mg_client = st.text_input(
+                "Client (Management)",
+                key=f"mg_client_{st.session_state.reset_trigger}",
+                placeholder="Client management contact"
+            )
     
     with colB:
-        pm_sp = st.text_input(
-            "Service Provider (Project Management)",
-            key=f"pm_sp_{st.session_state.reset_trigger}",
-            placeholder="Service provider project manager"
-        )
-        
-        mg_sp = st.text_input(
-            "Service Provider (Management)",
-            key=f"mg_sp_{st.session_state.reset_trigger}",
-            placeholder="Service provider management contact"
-        )
+        if st.session_state.edit_sow_mode:
+            pm_sp = st.text_input(
+                "Service Provider (Project Management)",
+                value=st.session_state.edit_sow_data.get("PMServiceProvider", ""),
+                key=f"pm_sp_{st.session_state.reset_trigger}",
+                placeholder="Service provider project manager",
+                disabled=True
+            )
+            
+            mg_sp = st.text_input(
+                "Service Provider (Management)",
+                value=st.session_state.edit_sow_data.get("ManagementServiceProvider", ""),
+                key=f"mg_sp_{st.session_state.reset_trigger}",
+                placeholder="Service provider management contact",
+                disabled=True
+            )
+        else:
+            pm_sp = st.text_input(
+                "Service Provider (Project Management)",
+                key=f"pm_sp_{st.session_state.reset_trigger}",
+                placeholder="Service provider project manager"
+            )
+            
+            mg_sp = st.text_input(
+                "Service Provider (Management)",
+                key=f"mg_sp_{st.session_state.reset_trigger}",
+                placeholder="Service provider management contact"
+            )
     
     # ========== SCOPE & SERVICES ==========
     st.subheader("🎯 Scope & Services")
     
-    scope_text = st.text_area(
-        "Scope / Responsibilities",
-        height=150,
-        key=f"scope_{st.session_state.reset_trigger}",
-        placeholder="Describe the scope and responsibilities..."
-    )
-    
-    ser_del = st.text_area(
-        "Services / Deliverables",
-        height=150,
-        key=f"ser_del_{st.session_state.reset_trigger}",
-        placeholder="List services and deliverables..."
-    )
+    if st.session_state.edit_sow_mode:
+        scope_text = st.text_area(
+            "Scope / Responsibilities",
+            value=st.session_state.edit_sow_data.get("ScopeSummary", ""),
+            height=150,
+            key=f"scope_{st.session_state.reset_trigger}",
+            placeholder="Describe the scope and responsibilities...",
+            disabled=True
+        )
+        
+        ser_del = st.text_area(
+            "Services / Deliverables",
+            value=st.session_state.edit_sow_data.get("ServicesDeliverables", ""),
+            height=150,
+            key=f"ser_del_{st.session_state.reset_trigger}",
+            placeholder="List services and deliverables...",
+            disabled=True
+        )
+    else:
+        scope_text = st.text_area(
+            "Scope / Responsibilities",
+            height=150,
+            key=f"scope_{st.session_state.reset_trigger}",
+            placeholder="Describe the scope and responsibilities..."
+        )
+        
+        ser_del = st.text_area(
+            "Services / Deliverables",
+            height=150,
+            key=f"ser_del_{st.session_state.reset_trigger}",
+            placeholder="List services and deliverables..."
+        )
     
     # ========== FINANCIAL DETAILS ==========
     if option == "Fixed Fee":
         st.subheader("💰 Fixed Fee Details")
-        Fees_al = st.number_input(
-            "Total Fees ($)",
-            value=50000.0,
-            step=1000.0,
-            key=f"fees_al_{st.session_state.reset_trigger}"
-        )
+        
+        if st.session_state.edit_sow_mode:
+            # Parse additional data
+            additional_data = {}
+            try:
+                additional_data = json.loads(st.session_state.edit_sow_data.get("AdditionalData", "{}"))
+            except:
+                additional_data = {}
+            
+            Fees_al = st.number_input(
+                "Total Fees ($)",
+                value=float(additional_data.get("project_specific", {}).get("fees", 0)),
+                step=1000.0,
+                key=f"fees_al_{st.session_state.reset_trigger}",
+                disabled=True
+            )
+        else:
+            Fees_al = st.number_input(
+                "Total Fees ($)",
+                value=50000.0,
+                step=1000.0,
+                key=f"fees_al_{st.session_state.reset_trigger}"
+            )
     
     # ========== ADDITIONAL PERSONNEL ==========
-    additional_personnel = st.text_input(
-        "Additional Personnel",
-        key=f"additional_personnel_{st.session_state.reset_trigger}",
-        placeholder="List any additional personnel involved..."
-    )
+    if st.session_state.edit_sow_mode:
+        additional_personnel = st.text_input(
+            "Additional Personnel",
+            value=st.session_state.edit_sow_data.get("AdditionalPersonnel", ""),
+            key=f"additional_personnel_{st.session_state.reset_trigger}",
+            placeholder="List any additional personnel involved...",
+            disabled=True
+        )
+    else:
+        additional_personnel = st.text_input(
+            "Additional Personnel",
+            key=f"additional_personnel_{st.session_state.reset_trigger}",
+            placeholder="List any additional personnel involved..."
+        )
     
+    # ========== T&M RESOURCES TABLE ==========
     # ========== T&M RESOURCES TABLE ==========
     resources_df = None
     if option == "T&M":
         st.subheader("👥 Resource Details")
         
-        # Create default resource data
-        default_data = [{
-            "Role": "Senior Consultant",
-            "Location": "Remote",
-            "Start Date": start_date,
-            "End Date": end_date,
-            "Allocation %": 100,
-            "Hrs/Day": 8,
-            "Rate/hr ($)": 150
-        }]
-        
-        # Create editable table
-        resources_df = st.data_editor(
-            pd.DataFrame(default_data),
-            num_rows="dynamic",
-            column_config={
-                "Role": st.column_config.TextColumn("Role", width="medium"),
-                "Location": st.column_config.TextColumn("Location", width="small"),
-                "Start Date": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD"),
-                "End Date": st.column_config.DateColumn("End Date", format="YYYY-MM-DD"),
-                "Allocation %": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5),
-                "Hrs/Day": st.column_config.NumberColumn("Hrs/Day", min_value=1, max_value=24, step=1),
-                "Rate/hr ($)": st.column_config.NumberColumn("Rate/hr ($)", min_value=0, step=10)
-            },
-            key=f"resources_table_{st.session_state.reset_trigger}",
-            hide_index=True
-        )
-        
-        # Calculate values
-        if not resources_df.empty:
-            def calculate_resource_cost(row):
-                try:
-                    days = networkdays(row["Start Date"], row["End Date"])
-                    return round(days * (row["Allocation %"]/100) * row["Hrs/Day"] * row["Rate/hr ($)"], 2)
-                except:
-                    return 0.0
+        # Parse resources from additional data if in edit mode
+        if st.session_state.edit_sow_mode:
+            additional_data = {}
+            try:
+                additional_data = json.loads(st.session_state.edit_sow_data.get("AdditionalData", "{}"))
+            except:
+                additional_data = {}
             
-            resources_df["Estimated $"] = resources_df.apply(calculate_resource_cost, axis=1)
+            resources_list = additional_data.get("project_specific", {}).get("resources", [])
             
-            # Display calculated table
-            st.dataframe(resources_df)
+            if resources_list:
+                # Convert to DataFrame
+                resources_df = pd.DataFrame(resources_list)
+                
+                # Make it editable for approval dashboard view
+                if st.session_state.viewing_for_approval:
+                    # Display as non-editable for approval view
+                    st.dataframe(
+                        resources_df,
+                        use_container_width=True,
+                        height=300
+                    )
+                else:
+                    # Display as editable DataFrame (for admin users who might need to edit)
+                    st.dataframe(resources_df, use_container_width=True, height=300)
+                    
+                    # Calculate total for display
+                    if "Estimated $" in resources_df.columns:
+                        total_estimated = resources_df["Estimated $"].sum()
+                        st.success(f"💰 **Total Estimated Cost: ${total_estimated:,.2f}**")
+            else:
+                st.info("No resource details available")
+        else:
+            # Create default resource data
+            default_data = [{
+                "Role": "Senior Consultant",
+                "Location": "Remote",
+                "Start Date": start_date,
+                "End Date": end_date,
+                "Allocation %": 100,
+                "Hrs/Day": 8,
+                "Rate/hr ($)": 150
+            }]
             
-            # Calculate total
-            currency_value = resources_df["Estimated $"].sum()
-            currency_value_str = f"${currency_value:,.2f}"
-            st.success(f"💰 **Total Contract Value: {currency_value_str}**")
+            # Create editable table
+            resources_df = st.data_editor(
+                pd.DataFrame(default_data),
+                num_rows="dynamic",
+                column_config={
+                    "Role": st.column_config.TextColumn("Role", width="medium"),
+                    "Location": st.column_config.TextColumn("Location", width="small"),
+                    "Start Date": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD"),
+                    "End Date": st.column_config.DateColumn("End Date", format="YYYY-MM-DD"),
+                    "Allocation %": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5),
+                    "Hrs/Day": st.column_config.NumberColumn("Hrs/Day", min_value=1, max_value=24, step=1),
+                    "Rate/hr ($)": st.column_config.NumberColumn("Rate/hr ($)", min_value=0, step=10)
+                },
+                key=f"resources_table_{st.session_state.reset_trigger}",
+                hide_index=True
+            )
+            
+            # Calculate values
+            if not resources_df.empty:
+                def calculate_resource_cost(row):
+                    try:
+                        days = networkdays(row["Start Date"], row["End Date"])
+                        return round(days * (row["Allocation %"]/100) * row["Hrs/Day"] * row["Rate/hr ($)"], 2)
+                    except:
+                        return 0.0
+                
+                resources_df["Estimated $"] = resources_df.apply(calculate_resource_cost, axis=1)
+                
+                # Display calculated table
+                st.dataframe(resources_df)
+                
+                # Calculate total
+                currency_value = resources_df["Estimated $"].sum()
+                currency_value_str = f"${currency_value:,.2f}"
+                st.success(f"💰 **Total Contract Value: {currency_value_str}**")
     
+    # ========== FIXED FEE MILESTONES ==========
     # ========== FIXED FEE MILESTONES ==========
     milestone_df = None
     if option == "Fixed Fee":
         st.subheader("📊 Milestone Schedule / Payment Breakdown")
         
-        # Create default milestone data
-        default_data = [{
-            "Milestone #": "1",
-            "Services / Deliverables": "Project Kickoff and Requirements Gathering",
-            "Milestone Due Date": start_date,
-            "Payment Allocation (%)": 30
-        }]
-        
-        # Create editable table
-        milestone_input_df = st.data_editor(
-            pd.DataFrame(default_data),
-            num_rows="dynamic",
-            column_config={
-                "Milestone #": st.column_config.TextColumn("Milestone #", width="small"),
-                "Services / Deliverables": st.column_config.TextColumn("Services / Deliverables", width="large"),
-                "Milestone Due Date": st.column_config.DateColumn("Due Date", format="YYYY-MM-DD"),
-                "Payment Allocation (%)": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5)
-            },
-            key=f"milestone_table_{st.session_state.reset_trigger}",
-            hide_index=True
-        )
-        
-        # Calculate payments
-        try:
-            total_fees = float(Fees_al) if 'Fees_al' in locals() else 0
-        except:
-            total_fees = 0
-        
-        milestone_df = milestone_input_df.copy()
-        
-        def calculate_payment(row):
+        if st.session_state.edit_sow_mode:
+            # Try to parse milestones from additional data
+            additional_data = {}
             try:
-                alloc = float(row["Payment Allocation (%)"])
-                return round(total_fees * (alloc / 100), 2)
+                additional_data = json.loads(st.session_state.edit_sow_data.get("AdditionalData", "{}"))
             except:
-                return 0
-        
-        milestone_df["Net Milestone Payment ($)"] = milestone_df.apply(calculate_payment, axis=1)
-        
-        # Display calculated table
-        st.dataframe(milestone_df)
-        
-        # Calculate total
-        total_payment = milestone_df["Net Milestone Payment ($)"].sum()
-        st.success(f"✅ **Total Net Milestone Payment: ${total_payment:,.2f}**")
-        
-        # Format for template
-        milestone_df = milestone_df.rename(columns={
-            "Milestone #": "milestone_no",
-            "Services / Deliverables": "services",
-            "Milestone Due Date": "due_date",
-            "Payment Allocation (%)": "allocation",
-            "Net Milestone Payment ($)": "net_pay"
-        })
+                additional_data = {}
+            
+            # Debug: Show what we found
+            print(f"🔍 DEBUG: Additional data keys: {list(additional_data.keys())}")
+            print(f"🔍 DEBUG: Project specific keys: {list(additional_data.get('project_specific', {}).keys())}")
+            
+            milestones_list = additional_data.get("project_specific", {}).get("milestones", [])
+            
+            if milestones_list:
+                print(f"✅ Found {len(milestones_list)} milestones")
+                
+                # Convert to DataFrame
+                milestone_df = pd.DataFrame(milestones_list)
+                
+                # Display based on view mode
+                if st.session_state.viewing_for_approval:
+                    # Show as non-editable for approval
+                    st.dataframe(
+                        milestone_df,
+                        use_container_width=True,
+                        height=300
+                    )
+                    
+                    # Calculate and display total
+                    if "net_pay" in milestone_df.columns:
+                        total_payment = milestone_df["net_pay"].sum()
+                        st.success(f"💰 **Total Milestone Payment: ${total_payment:,.2f}**")
+                else:
+                    # Show as read-only for other edit views
+                    st.dataframe(milestone_df, use_container_width=True, height=300)
+                    
+                    # Calculate total for display
+                    if "net_pay" in milestone_df.columns:
+                        total_payment = milestone_df["net_pay"].sum()
+                        st.success(f"✅ **Total Milestone Payment: ${total_payment:,.2f}**")
+            else:
+                print("❌ No milestones found in additional data")
+                st.info("No milestone details available")
+                
+                # Try alternative approach - check if there's milestone data in form_data
+                if st.session_state.get('form_data') and 'milestone_df' in st.session_state.form_data:
+                    milestone_df = st.session_state.form_data.get('milestone_df')
+                    if milestone_df is not None and not milestone_df.empty:
+                        st.dataframe(milestone_df, use_container_width=True, height=300)
+                    else:
+                        st.info("No milestone details available")
+        else:
+            # Create default milestone data
+            default_data = [{
+                "Milestone #": "1",
+                "Services / Deliverables": "Project Kickoff and Requirements Gathering",
+                "Milestone Due Date": start_date,
+                "Payment Allocation (%)": 30
+            }]
+            
+            # Create editable table
+            milestone_input_df = st.data_editor(
+                pd.DataFrame(default_data),
+                num_rows="dynamic",
+                column_config={
+                    "Milestone #": st.column_config.TextColumn("Milestone #", width="small"),
+                    "Services / Deliverables": st.column_config.TextColumn("Services / Deliverables", width="large"),
+                    "Milestone Due Date": st.column_config.DateColumn("Due Date", format="YYYY-MM-DD"),
+                    "Payment Allocation (%)": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5)
+                },
+                key=f"milestone_table_{st.session_state.reset_trigger}",
+                hide_index=True
+            )
+            
+            # Calculate payments
+            try:
+                total_fees = float(Fees_al) if 'Fees_al' in locals() else 0
+            except:
+                total_fees = 0
+            
+            milestone_df = milestone_input_df.copy()
+            
+            def calculate_payment(row):
+                try:
+                    alloc = float(row["Payment Allocation (%)"])
+                    return round(total_fees * (alloc / 100), 2)
+                except:
+                    return 0
+            
+            milestone_df["Net Milestone Payment ($)"] = milestone_df.apply(calculate_payment, axis=1)
+            
+            # Display calculated table
+            st.dataframe(milestone_df)
+            
+            # Calculate total
+            total_payment = milestone_df["Net Milestone Payment ($)"].sum()
+            st.success(f"✅ **Total Net Milestone Payment: ${total_payment:,.2f}**")
+            
+            # Format for template
+            milestone_df = milestone_df.rename(columns={
+                "Milestone #": "milestone_no",
+                "Services / Deliverables": "services",
+                "Milestone Due Date": "due_date",
+                "Payment Allocation (%)": "allocation",
+                "Net Milestone Payment ($)": "net_pay"
+            })
     
-    # ========== GENERATE BUTTON ==========
-    st.divider()
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # ========== APPROVAL SECTION (ONLY IN EDIT MODE) ==========
+    if st.session_state.edit_sow_mode and st.session_state.viewing_for_approval:
+        st.markdown("</div>", unsafe_allow_html=True)  # Close approval section div
+        st.divider()
+        
+        # Show current status
+        current_status = st.session_state.edit_sow_data.get("Status", "")
+        status_color = {
+            Config.STATUS_PENDING: "🟡",
+            Config.STATUS_APPROVED: "🟢",
+            Config.STATUS_REJECTED: "🔴",
+            Config.STATUS_DRAFT: "⚪"
+        }.get(current_status, "⚪")
+        
+        st.subheader(f"{status_color} Approval Decision")
+        
+        # Approval decision
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            approve_btn = st.button("✅ Approve", use_container_width=True, 
+                                   type="primary", key="approve_btn")
+        
+        with col2:
+            reject_btn = st.button("❌ Reject", use_container_width=True,
+                                  type="secondary", key="reject_btn")
+        
+        # Comments
+        st.text_area("Comments (Required for Rejection)", 
+                    key="approval_comments",
+                    placeholder="Enter your comments here...",
+                    height=100)
+        
+        # Handle approval/rejection
+        if approve_btn:
+            if handle_approval_rejection(Config.STATUS_APPROVED):
+                st.success("SOW Approved successfully!")
+                time.sleep(2)
+                # Reset edit mode and go back to approval dashboard
+                st.session_state.edit_sow_mode = False
+                st.session_state.viewing_for_approval = False
+                st.rerun()
+        
+        if reject_btn:
+            if not st.session_state.get("approval_comments", "").strip():
+                st.error("Please provide comments when rejecting a SOW.")
+            else:
+                if handle_approval_rejection(Config.STATUS_REJECTED):
+                    st.success("SOW Rejected successfully!")
+                    time.sleep(2)
+                    # Reset edit mode and go back to approval dashboard
+                    st.session_state.edit_sow_mode = False
+                    st.session_state.viewing_for_approval = False
+                    st.rerun()
+        
+        # Back button
+        if st.button("⬅️ Back to Approval Dashboard", use_container_width=True):
+            st.session_state.edit_sow_mode = False
+            st.session_state.viewing_for_approval = False
+            st.rerun()
     
-    with col2:
-        generate_btn = st.button(
-            "🚀 GENERATE SOW DOCUMENT",
-            type="primary",
-            use_container_width=True,
-            help="Click to generate the SOW document"
-        )
-    
-    if generate_btn:
-        generate_sow_document(
-            option=option,
-            sow_num=sow_num,
-            sow_name=sow_name,
-            Client_Name=Client_Name,
-            start_date=start_date,
-            end_date=end_date,
-            scope_text=scope_text,
-            ser_del=ser_del,
-            pm_client=pm_client,
-            pm_sp=pm_sp,
-            mg_client=mg_client,
-            mg_sp=mg_sp,
-            additional_personnel=additional_personnel,
-            resources_df=resources_df,
-            milestone_df=milestone_df,
-            template_manager=template_manager
-        )
+    # ========== GENERATE BUTTON (ONLY IN CREATE MODE) ==========
+    # ========== GENERATE BUTTON (ONLY IN CREATE MODE) ==========
+    elif not st.session_state.edit_sow_mode:
+        st.divider()
+        
+        # ADD THIS CHECKBOX BEFORE THE GENERATE BUTTON
+        col_checkbox, _ = st.columns([1, 3])
+        with col_checkbox:
+            show_buttons = st.checkbox(
+                "Generate SOW with Submit request", 
+                value=False,  # Default is unchecked
+                key=f"show_buttons_checkbox_{st.session_state.reset_trigger}",
+                help="Check this box to reveal download and upload buttons"
+            )
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:
+            generate_btn = st.button(
+                "🚀 Submit SOW Request",
+                type="primary",
+                use_container_width=True,
+                help="Click to generate the SOW document"
+            )
+        
+        if generate_btn:
+            generate_sow_document(
+                option=option,
+                sow_num=sow_num,
+                sow_name=sow_name,
+                Client_Name=Client_Name,
+                start_date=start_date,
+                end_date=end_date,
+                scope_text=scope_text,
+                ser_del=ser_del,
+                pm_client=pm_client,
+                pm_sp=pm_sp,
+                mg_client=mg_client,
+                mg_sp=mg_sp,
+                additional_personnel=additional_personnel,
+                resources_df=resources_df,
+                milestone_df=milestone_df,
+                template_manager=template_manager
+            )
     
     # ========== DOWNLOAD SECTION ==========
     if st.session_state.get('should_increment_on_download') and st.session_state.get('file_data'):
@@ -1583,10 +2085,15 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             }
             
             # Add project-specific data
+                        # Add project-specific data
             if option == "T&M" and resources_df is not None:
                 context["resources"] = resources_df.to_dict(orient="records")
                 context["currency_value"] = currency_value
                 context["currency_value_str"] = f"${currency_value:,.2f}"
+                
+                # Store resources in session state for later use
+                if st.session_state.edit_sow_mode:
+                    st.session_state.form_data["resources_df"] = resources_df
             
             elif option == "Fixed Fee":
                 context["Fees"] = Fees_al_value
@@ -1594,6 +2101,10 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
                     context["milestones"] = milestone_df.to_dict(orient="records")
                     total_payment = milestone_df["net_pay"].sum() if "net_pay" in milestone_df.columns else 0
                     context["milestone_total"] = total_payment
+                    
+                    # Store milestones in session state for later use
+                    if st.session_state.edit_sow_mode:
+                        st.session_state.form_data["milestone_df"] = milestone_df
             
             elif option == "Change Order":
                 context.update({
@@ -1657,7 +2168,6 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
                 })
             
             # Store form_data in session state
-                        # Store form_data in session state
             st.session_state.form_data = form_data
             
             # NEW: Create Excel files based on project type
@@ -1682,8 +2192,6 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
                     st.info(f"📊 Resource details Excel file created: {os.path.basename(excel_path)}")
             
             st.success("✅ SOW document generated successfully!")
-            
-            st.success("✅ SOW document generated successfully!")
             st.session_state.should_increment_on_download = True
             
             # Auto-save to SharePoint
@@ -1692,6 +2200,30 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
         except Exception as e:
             st.error(f"❌ Error generating document: {str(e)}")
             st.exception(e)
+
+def handle_approval_rejection(action):
+    """Handle approval/rejection actions"""
+    with st.spinner(f"Processing {action.lower()}..."):
+        try:
+            sharepoint_service = st.session_state.sharepoint_service
+            
+            # Call update status flow
+            result = sharepoint_service.update_sow_status(
+                item_id=st.session_state.edit_sow_id,
+                status=action,
+                comments=st.session_state.get("approval_comments", ""),
+                approver_email=st.session_state.user_email
+            )
+            
+            if result["success"]:
+                return True
+            else:
+                st.error(f"Failed to {action.lower()} SOW: {result.get('message', 'Unknown error')}")
+                return False
+                
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+            return False
 
 def auto_save_to_sharepoint():
     """Automatically save SOW data to SharePoint"""
@@ -1776,9 +2308,14 @@ def debug_form_data(form_data):
         if 'difference' in form_data:
             print(f"  - difference: {form_data['difference']}")
 
-
 def show_download_section():
     """Show download and upload options - UPDATED with Excel downloads"""
+
+    checkbox_key = f"show_buttons_checkbox_{st.session_state.reset_trigger}"
+    if not st.session_state.get(checkbox_key, False):
+        st.info("ℹ️ **Buttons are hidden** - Check the 'Show download/upload options' checkbox to reveal download and upload buttons.")
+        st.divider()
+        return
     st.divider()
     st.subheader("📄 Document Ready")
     
@@ -2091,14 +2628,12 @@ def upload_excel_to_sharepoint_folder(sharepoint_service, file_data, file_name, 
             "error": str(e),
             "message": f"Fatal error: {str(e)}"
         }
-# ============================================================================
-# PAGE 2: APPROVAL DASHBOARD
-# ============================================================================
+
 # ============================================================================
 # PAGE 2: APPROVAL DASHBOARD
 # ============================================================================
 def page_approval_dashboard():
-    """Approval dashboard for legal team"""
+    """Approval dashboard for legal team - Simple dataframe with download"""
     
     # Check authorization
     if st.session_state.user_email not in Config.LEGAL_TEAM:
@@ -2107,7 +2642,7 @@ def page_approval_dashboard():
         return
     
     st.title("⚖️ Legal Approval Dashboard")
-    st.markdown("Review and approve/reject SOW documents submitted by users.")
+    st.markdown("Review and approve SOW submissions.")
     
     # Check if Get Records flow is configured
     if not Config.POWER_AUTOMATE_URLS["get_records"]:
@@ -2124,7 +2659,7 @@ def page_approval_dashboard():
     with col1:
         status_filter = st.selectbox(
             "Status",
-            ["All", Config.STATUS_PENDING, Config.STATUS_APPROVED, Config.STATUS_REJECTED],
+            ["All", Config.STATUS_PENDING, Config.STATUS_APPROVED, Config.STATUS_REJECTED, Config.STATUS_DRAFT],
             key="approval_status_filter"
         )
     
@@ -2142,261 +2677,222 @@ def page_approval_dashboard():
             key="approval_project_filter"
         )
     
-    # Build filters
-    filters = {}
-    if status_filter != "All":
-        filters["status"] = status_filter
-    if client_filter != "All":
-        filters["client"] = client_filter
-    if project_filter != "All":
-        filters["project_type"] = project_filter
+    # Load records button
+    load_clicked = st.button("📥 Load Records", type="primary", use_container_width=True, key="load_records_btn")
     
-    # ========== LOAD RECORDS ==========
-    with st.spinner("Loading SOW records from SharePoint..."):
-        result = sharepoint_service.get_sow_records(**filters)
-    
-    if not result["success"]:
-        st.error(f"❌ Failed to load records: {result.get('message', 'Unknown error')}")
-        return
-    
-    df = result["data"]
-    
-    if df.empty:
-        st.info("📭 No SOW records found with the selected filters.")
-        return
-    
-    # ========== DASHBOARD OVERVIEW ==========
-    st.subheader(f"📊 Dashboard Overview ({len(df)} records)")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        pending_count = len(df[df["Status"] == Config.STATUS_PENDING])
-        st.metric("Pending Review", pending_count)
-    
-    with col2:
-        approved_count = len(df[df["Status"] == Config.STATUS_APPROVED])
-        st.metric("Approved", approved_count)
-    
-    with col3:
-        rejected_count = len(df[df["Status"] == Config.STATUS_REJECTED])
-        st.metric("Rejected", rejected_count)
-    
-    with col4:
-        # FIX: Safely convert TotalValue to float for sum calculation
-        try:
-            # Convert TotalValue column to numeric, coerce errors to NaN
-            df['TotalValue_numeric'] = pd.to_numeric(df['TotalValue'], errors='coerce')
-            total_value = df['TotalValue_numeric'].sum()
-            # Check if total_value is NaN (meaning all values were invalid)
-            if pd.isna(total_value):
-                st.metric("Total Value", "$0.00")
+    if load_clicked or st.session_state.get('sow_dataframe') is not None:
+        with st.spinner("Loading SOW records from SharePoint..."):
+            # Only fetch new data if button was clicked or no data exists
+            if load_clicked or st.session_state.get('sow_dataframe') is None:
+                # Build filters
+                filters = {}
+                if status_filter != "All":
+                    filters["status"] = status_filter
+                if client_filter != "All":
+                    filters["client"] = client_filter
+                if project_filter != "All":
+                    filters["project_type"] = project_filter
+                
+                result = sharepoint_service.get_sow_records(**filters)
+                
+                if not result["success"]:
+                    st.error(f"❌ Failed to load records: {result.get('message', 'Unknown error')}")
+                    return
+                
+                df = result["data"]
+                
+                if df.empty:
+                    st.info("📭 No SOW records found with the selected filters.")
+                    st.session_state.sow_dataframe = None
+                    return
+                
+                # Store dataframe in session state
+                st.session_state.sow_dataframe = df
             else:
-                st.metric("Total Value", f"${total_value:,.2f}")
-        except Exception as e:
-            st.metric("Total Value", "$0.00")
-            # Debug info in expander
-            with st.expander("Debug - TotalValue Conversion"):
-                st.write("Error converting TotalValue:", str(e))
-                st.write("TotalValue data types:", df['TotalValue'].dtype)
-                st.write("Sample TotalValue values:", df['TotalValue'].head(10).tolist())
-    
-    # ========== PENDING REVIEW SECTION ==========
-    st.divider()
-    st.subheader(f"⏳ Pending Review ({pending_count})")
-    
-    pending_df = df[df["Status"] == Config.STATUS_PENDING]
-    
-    if pending_df.empty:
-        st.success("🎉 No SOWs pending review!")
-    else:
-        for idx, row in pending_df.iterrows():
-            with st.container():
-                st.markdown("---")
-                
-                col1, col2, col3 = st.columns([3, 2, 2])
-                
-                with col1:
-                    st.markdown(f"### {row.get('SOWNumber', 'N/A')} - {row.get('SOWName', 'N/A')}")
-                    st.caption(f"**Client:** {row.get('Client', 'N/A')} | **Type:** {row.get('ProjectType', 'N/A')}")
-                    st.caption(f"**Created by:** {row.get('CreatedBy', 'N/A')} | **Created:** {row.get('GeneratedDate', 'N/A')}")
-                    
-                    if pd.notna(row.get('ScopeSummary')):
-                        with st.expander("View Scope Summary"):
-                            st.write(row['ScopeSummary'])
-                
-                with col2:
-                    st.caption("**Timeline**")
-                    st.write(f"Start: {row.get('StartDate', 'N/A')}")
-                    st.write(f"End: {row.get('EndDate', 'N/A')}")
-                    
-                    # FIX: Safely display TotalValue
-                    try:
-                        # Try to convert to float first
-                        if pd.notna(row.get('TotalValue')):
-                            # Check if it's already a numeric type
-                            if isinstance(row.get('TotalValue'), (int, float)):
-                                total_value = float(row.get('TotalValue', 0))
-                            else:
-                                # Try to convert string to float
-                                total_value = float(str(row.get('TotalValue', '0')).replace(',', '').replace('$', ''))
-                            
-                            if total_value > 0:
-                                st.metric("Value", f"${total_value:,.2f}")
-                    except (ValueError, TypeError) as e:
-                        # Display as string if conversion fails
-                        total_value_str = str(row.get('TotalValue', '0'))
-                        st.caption(f"**Value:** {total_value_str}")
-                
-                with col3:
-                    st.caption("**Take Action**")
-                    
-                    # Create unique keys
-                    unique_key = f"{row.get('ID', idx)}_{idx}"
-                    
-                    comments = st.text_area(
-                        "Comments",
-                        key=f"comments_{unique_key}",
-                        placeholder="Enter approval comments...",
-                        height=80
-                    )
-                    
-                    col_approve, col_reject = st.columns(2)
-                    
-                    with col_approve:
-                        if st.button(
-                            "✅ Approve",
-                            key=f"approve_{unique_key}",
-                            use_container_width=True,
-                            type="primary"
-                        ):
-                            handle_approval(row.get('ID'), Config.STATUS_APPROVED, comments, row)
-                    
-                    with col_reject:
-                        if st.button(
-                            "❌ Reject",
-                            key=f"reject_{unique_key}",
-                            use_container_width=True,
-                            type="secondary"
-                        ):
-                            handle_approval(row.get('ID'), Config.STATUS_REJECTED, comments, row)
-    
-    # ========== RECENTLY PROCESSED ==========
-    st.divider()
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        with st.expander("✅ Recently Approved", expanded=True):
-            approved_df = df[df["Status"] == Config.STATUS_APPROVED].head(5)
-            if not approved_df.empty:
-                for _, row in approved_df.iterrows():
-                    st.write(f"**{row.get('SOWNumber', 'N/A')}** - {row.get('SOWName', 'N/A')}")
-                    st.caption(f"Approved by: {row.get('ApprovedBy', 'N/A')} | {row.get('ApprovalDate', 'N/A')}")
-                    if pd.notna(row.get('ApproverComments')) and row['ApproverComments']:
-                        st.caption(f"📝 {row['ApproverComments'][:100]}...")
-            else:
-                st.write("No approved SOWs")
-    
-    with col2:
-        with st.expander("❌ Recently Rejected", expanded=True):
-            rejected_df = df[df["Status"] == Config.STATUS_REJECTED].head(5)
-            if not rejected_df.empty:
-                for _, row in rejected_df.iterrows():
-                    st.write(f"**{row.get('SOWNumber', 'N/A')}** - {row.get('SOWName', 'N/A')}")
-                    st.caption(f"Rejected by: {row.get('ApprovedBy', 'N/A')} | {row.get('ApprovalDate', 'N/A')}")
-                    if pd.notna(row.get('ApproverComments')) and row['ApproverComments']:
-                        st.caption(f"📝 {row['ApproverComments'][:100]}...")
-            else:
-                st.write("No rejected SOWs")
-    
-    # ========== ALL RECORDS VIEW ==========
-    st.divider()
-    st.subheader("📋 All Records View")
-    
-    # Create a safe display DataFrame
-    display_df = df.copy()
-    
-    # FIX: Safely format TotalValue column
-    def safe_format_total_value(value):
-        try:
-            if pd.isna(value):
-                return "$0.00"
-            # Check if value is already numeric
-            if isinstance(value, (int, float)):
-                return f"${value:,.2f}"
-            # Try to convert string to float
-            numeric_value = float(str(value).replace(',', '').replace('$', '').strip())
-            return f"${numeric_value:,.2f}"
-        except (ValueError, TypeError):
-            return str(value)
-    
-    # Apply safe formatting
-    if 'TotalValue' in display_df.columns:
-        display_df['TotalValue'] = display_df['TotalValue'].apply(safe_format_total_value)
-    
-    # Configure display columns
-    display_columns = ["SOWNumber", "SOWName", "Client", "ProjectType", "Status", 
-                      "CreatedBy", "GeneratedDate", "TotalValue"]
-    
-    # Add ApprovedBy if it exists
-    if "ApprovedBy" in display_df.columns:
-        display_columns.append("ApprovedBy")
-    
-    # Filter DataFrame for display
-    display_df = display_df[display_columns].copy() if all(col in display_df.columns for col in display_columns) else display_df.copy()
-    
-    # Show data
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        column_config={
-            "SOWNumber": st.column_config.TextColumn("SOW #"),
-            "SOWName": st.column_config.TextColumn("SOW Name"),
-            "Client": st.column_config.TextColumn("Client"),
-            "ProjectType": st.column_config.TextColumn("Type"),
-            "Status": st.column_config.TextColumn("Status"),
-            "TotalValue": st.column_config.TextColumn("Value"),
-        }
-    )
-
-def handle_approval(item_id, action, comments, row_data):
-    """Handle approval/rejection actions"""
-    with st.spinner(f"{action} SOW..."):
-        try:
-            sharepoint_service = st.session_state.sharepoint_service
+                # Use existing dataframe
+                df = st.session_state.sow_dataframe
             
-            # Call update status flow
-            result = sharepoint_service.update_sow_status(
-                item_id=item_id,
-                status=action,
-                comments=comments,
-                approver_email=st.session_state.user_email
+            if df.empty:
+                st.info("📭 No SOW records found with the selected filters.")
+                return
+            
+            # ========== DISPLAY DATAFRAME WITH VIEW BUTTONS ==========
+            st.subheader(f"📋 SOW Records ({len(df)} records)")
+            
+            # Create a copy for display
+            display_df = df.copy()
+            
+            # Configure column order
+            column_order = ['SOWNumber', 'SOWName', 'Client', 'ProjectType', 
+                          'Status', 'StartDate', 'EndDate', 'CreatedBy', 'GeneratedDate']
+            
+            # Filter to only existing columns
+            existing_columns = [col for col in column_order if col in display_df.columns]
+            
+            # Display dataframe
+            st.dataframe(
+                display_df[existing_columns],
+                use_container_width=True,
+                height=400,
+                column_config={
+                    "SOWNumber": st.column_config.TextColumn("SOW #", width="small"),
+                    "SOWName": st.column_config.TextColumn("SOW Name", width="medium"),
+                    "Client": st.column_config.TextColumn("Client", width="small"),
+                    "ProjectType": st.column_config.TextColumn("Type", width="small"),
+                    "Status": st.column_config.TextColumn("Status", width="small"),
+                    "StartDate": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD", width="small"),
+                    "EndDate": st.column_config.DateColumn("End Date", format="YYYY-MM-DD", width="small"),
+                    "CreatedBy": st.column_config.TextColumn("Created By", width="medium"),
+                    "GeneratedDate": st.column_config.DateColumn("Created Date", format="YYYY-MM-DD", width="small"),
+                }
             )
             
-            if result["success"]:
-                st.success(f"✅ SOW {action.lower()} successfully!")
-                st.balloons()
+            # ========== VIEW SOW FOR APPROVAL ==========
+            st.subheader("👁️ View SOW for Approval")
+            
+            # Create a selectbox with SOW numbers
+            sow_options = df['SOWNumber'].unique().tolist()
+            
+            # Create display names for each SOW
+            sow_display_names = []
+            for sow in sow_options:
+                sow_name = df[df['SOWNumber'] == sow]['SOWName'].iloc[0]
+                status = df[df['SOWNumber'] == sow]['Status'].iloc[0]
+                display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({status})"
+                sow_display_names.append(display_name)
+            
+            # Create a dictionary for mapping display names to actual values
+            sow_mapping = dict(zip(sow_display_names, sow_options))
+            
+            # Selectbox for SOW
+            selected_display = st.selectbox(
+                "Select SOW to review:",
+                options=sow_display_names,
+                key="sow_select_view",
+                index=0
+            )
+            
+            # Get actual SOW number from display name
+            selected_sow = sow_mapping[selected_display]
+            
+            # Find the selected row
+            selected_row = df[df['SOWNumber'] == selected_sow].iloc[0]
+            
+            # View button
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                view_btn = st.button(
+                    "👁️ View SOW Details & Approve/Reject", 
+                    use_container_width=True,
+                    type="primary",
+                    key="view_sow_btn"
+                )
+            
+            with col2:
+                download_btn = st.button(
+                    "📥 Download Document", 
+                    use_container_width=True,
+                    key="download_doc_btn"
+                )
+            
+            if view_btn:
+                # Set edit mode and load SOW data
+                st.session_state.edit_sow_mode = True
+                st.session_state.viewing_for_approval = True
+                st.session_state.edit_sow_data = selected_row.to_dict()
+                st.session_state.edit_sow_id = selected_row.get('ID')
                 
-                # Log action
-                st.info(f"**SOW:** {row_data.get('SOWNumber', 'N/A')} | **Action:** {action} | **By:** {st.session_state.user_email}")
+                # Load the additional data (resources/milestones) for display
+                load_sow_data_for_edit_mode(selected_row.to_dict())
                 
-                # Wait and refresh
-                time.sleep(2)
                 st.rerun()
-            else:
-                st.error(f"❌ Failed to {action.lower()} SOW: {result.get('message', 'Unknown error')}")
+            
+            if download_btn:
+                with st.spinner(f"Downloading document for {selected_sow}..."):
+                    # Try to get document from SharePoint
+                    document_id = selected_row.get('ID')
+                    
+                    if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
+                        document_bytes = sharepoint_service.get_document(item_id=document_id)
+                        
+                        if document_bytes:
+                            filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
+                            
+                            st.success("✅ Document ready for download!")
+                            st.download_button(
+                                f"📥 Click to download: {selected_sow}",
+                                data=document_bytes,
+                                file_name=filename,
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True,
+                                key=f"download_{selected_sow}"
+                            )
+                        else:
+                            st.warning("⚠️ Document not found in SharePoint.")
+                    else:
+                        st.error("❌ Document ID not found or get_document flow not configured.")
+            
+            # ========== EXPORT DATA SECTION ==========
+            st.divider()
+            st.subheader("📤 Export All Data")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export to CSV
+                csv = df.to_csv(index=False)
+                st.download_button(
+                    "📥 Download as CSV",
+                    data=csv,
+                    file_name=f"sow_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="export_csv_btn"
+                )
+            
+            with col2:
+                # Export to Excel
+                excel_buffer = BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='SOW Records')
                 
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+                st.download_button(
+                    "📊 Download as Excel",
+                    data=excel_buffer.getvalue(),
+                    file_name=f"sow_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="export_excel_btn"
+                )
+    
+    else:
+        # Initial state - show instructions
+        st.info("👆 Click 'Load Records' button to load SOW data from SharePoint")
+        st.markdown("""
+        ### How to use:
+        1. Select filters from the dropdowns above
+        2. Click **Load Records** button
+        3. View all SOW records in the interactive table
+        4. Select a SOW from the dropdown below the table
+        5. Click **View SOW Details & Approve/Reject** to review and make a decision
+        
+        ### Features:
+        - **View all SOW records** in a clean table
+        - **Filter** by status, client, and project type
+        - **View SOW details** in read-only mode
+        - **Approve or Reject** SOW submissions with comments
+        - **Download documents** for review
+        """)
 
 # ============================================================================
-# PAGE 3: PUBLISHED SOWs
+# PAGE 3: PUBLISHED SOWS
 # ============================================================================
 def page_published_sows():
-    """Published SOWs page for everyone"""
+    """Published SOWs page for all users to view approved SOWs"""
+    
     st.title("📚 Published SOWs")
-    st.markdown("View and download approved SOW documents.")
+    st.markdown("View all approved SOW documents.")
     
     # Check if Get Records flow is configured
     if not Config.POWER_AUTOMATE_URLS["get_records"]:
@@ -2406,146 +2902,253 @@ def page_published_sows():
     
     sharepoint_service = st.session_state.sharepoint_service
     
-    # ========== FILTERS ==========
+    # Initialize session state for data persistence
+    if 'published_sows_df' not in st.session_state:
+        st.session_state.published_sows_df = None
+    
+    # ========== SIMPLE FILTERS ==========
     st.subheader("🔍 Filter Options")
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        search_term = st.text_input(
-            "Search",
-            placeholder="Search by SOW number or name...",
-            key="published_search"
+        status_filter = st.selectbox(
+            "Status",
+            [Config.STATUS_APPROVED, "All", Config.STATUS_PENDING, Config.STATUS_REJECTED],
+            key="published_status_filter"
         )
     
     with col2:
         client_filter = st.selectbox(
-            "Filter by Client",
+            "Client",
             ["All", "BSC", "Abiomed", "Cognex", "Itaros", "Other"],
             key="published_client_filter"
         )
     
     with col3:
-        project_type_filter = st.selectbox(
-            "Filter by Type",
+        project_filter = st.selectbox(
+            "Project Type",
             ["All", "Fixed Fee", "T&M", "Change Order"],
             key="published_project_filter"
         )
     
-    # ========== LOAD APPROVED SOWs ==========
-    with st.spinner("Loading approved SOWs from SharePoint..."):
-        # Build filter parameters
-        filter_params = {
-            "status": Config.STATUS_APPROVED
-        }
+    # Load records button
+    load_clicked = st.button("📥 Load Published SOWs", type="primary", use_container_width=True, key="load_published_btn")
+    
+    # Data loading logic
+    if load_clicked:
+        with st.spinner("Loading published SOWs from SharePoint..."):
+            # Build filters - Always show approved by default
+            filters = {"status": status_filter if status_filter != "All" else Config.STATUS_APPROVED}
+            if client_filter != "All":
+                filters["client"] = client_filter
+            if project_filter != "All":
+                filters["project_type"] = project_filter
+            
+            result = sharepoint_service.get_sow_records(**filters)
+            
+            if not result["success"]:
+                st.error(f"❌ Failed to load records: {result.get('message', 'Unknown error')}")
+                st.session_state.published_sows_df = None
+                return
+            
+            df = result["data"]
+            
+            if df.empty:
+                st.info("📭 No published SOWs found with the selected filters.")
+                st.session_state.published_sows_df = None
+                return
+            
+            # Store dataframe in session state
+            st.session_state.published_sows_df = df
+            
+    # Display data if loaded
+    if st.session_state.published_sows_df is not None:
+        df = st.session_state.published_sows_df
         
-        if client_filter != "All":
-            filter_params["client_filter"] = client_filter
+        if df.empty:
+            st.info("📭 No published SOWs found.")
+            return
         
-        if project_type_filter != "All":
-            filter_params["project_type_filter"] = project_type_filter
+        # ========== DISPLAY DATAFRAME ==========
+        st.subheader(f"📋 Published SOWs ({len(df)} records)")
         
-        # Call get_sow_records with proper parameters
-        result = sharepoint_service.get_sow_records(**filter_params)
-    
-    if not result["success"]:
-        st.error(f"❌ Failed to load records: {result.get('message', 'Unknown error')}")
-        return
-    
-    df = result["data"]
-    
-    if df.empty:
-        st.info("📭 No approved SOWs available.")
-        return
-    
-    # Apply search filter
-    if search_term:
-        mask = (
-            df['SOWNumber'].astype(str).str.contains(search_term, case=False, na=False) |
-            df['SOWName'].astype(str).str.contains(search_term, case=False, na=False)
+        # Create a copy for display
+        display_df = df.copy()
+        
+        # Configure column order
+        column_order = ['SOWNumber', 'SOWName', 'Client', 'ProjectType', 
+                      'Status', 'StartDate', 'EndDate', 'CreatedBy', 'GeneratedDate', 'TotalValue']
+        
+        # Filter to only existing columns
+        existing_columns = [col for col in column_order if col in display_df.columns]
+        
+        # Display dataframe
+        st.dataframe(
+            display_df[existing_columns],
+            use_container_width=True,
+            height=400,
+            column_config={
+                "SOWNumber": st.column_config.TextColumn("SOW #"),
+                "SOWName": st.column_config.TextColumn("SOW Name"),
+                "Client": st.column_config.TextColumn("Client"),
+                "ProjectType": st.column_config.TextColumn("Type"),
+                "Status": st.column_config.TextColumn("Status"),
+                "StartDate": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD"),
+                "EndDate": st.column_config.DateColumn("End Date", format="YYYY-MM-DD"),
+                "CreatedBy": st.column_config.TextColumn("Created By"),
+                "GeneratedDate": st.column_config.DateColumn("Created Date", format="YYYY-MM-DD"),
+                "TotalValue": st.column_config.NumberColumn("Total Value", format="$%.2f")
+            }
         )
-        df = df[mask]
-    
-    st.subheader(f"✅ Approved SOWs ({len(df)} items)")
-    
-    # ========== DISPLAY SOWs ==========
-    for idx, row in df.iterrows():
-        with st.container():
-            col1, col2, col3 = st.columns([3, 2, 1])
-            
-            with col1:
-                st.write(f"### {row.get('SOWNumber', 'N/A')}")
-                st.write(f"**{row.get('SOWName', 'N/A')}**")
-                st.caption(f"**Client:** {row.get('Client', 'N/A')} | **Type:** {row.get('ProjectType', 'N/A')}")
-                st.caption(f"**Period:** {row.get('StartDate', 'N/A')} to {row.get('EndDate', 'N/A')}")
-                
-                # FIX: Safely display TotalValue
-                try:
-                    total_value = row.get('TotalValue', 0)
-                    # Check if it's already numeric
-                    if isinstance(total_value, (int, float)):
-                        if total_value > 0:
-                            st.caption(f"**Value:** ${total_value:,.2f}")
-                    else:
-                        # Try to convert to float
-                        total_value_float = float(str(total_value))
-                        if total_value_float > 0:
-                            st.caption(f"**Value:** ${total_value_float:,.2f}")
-                except (ValueError, TypeError):
-                    # Display as string if conversion fails
-                    total_value_str = str(row.get('TotalValue', '0'))
-                    st.caption(f"**Value:** {total_value_str}")
-            
-            with col2:
-                st.caption("**Approval Details**")
-                st.write(f"Approved on: {row.get('ApprovalDate', 'N/A')}")
-                st.write(f"Approved by: {row.get('ApprovedBy', 'N/A')}")
-                
-                if pd.notna(row.get('ApproverComments')) and row['ApproverComments']:
-                    with st.expander("View Comments"):
-                        st.write(row['ApproverComments'])
-            
-            with col3:
-                # Download button
-                if st.button("⬇️ Download", key=f"download_{idx}", use_container_width=True):
-                    with st.spinner("Preparing document..."):
-                        # Try to get document from SharePoint
-                        document_id = row.get('ID')
-                        if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
-                            document_bytes = sharepoint_service.get_document(document_id)
-                            if document_bytes:
-                                st.download_button(
-                                    "Click to save",
-                                    data=document_bytes,
-                                    file_name=f"{row.get('SOWNumber', 'SOW')}_Approved.docx",
-                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                    key=f"save_{idx}"
-                                )
-                            else:
-                                st.warning("Document not available for download")
-                        else:
-                            # Create a simple document as fallback
-                            from docx import Document
-                            doc = Document()
-                            doc.add_heading(f"SOW: {row.get('SOWNumber', 'N/A')}", 0)
-                            doc.add_paragraph(f"SOW Name: {row.get('SOWName', 'N/A')}")
-                            doc.add_paragraph(f"Client: {row.get('Client', 'N/A')}")
-                            doc.add_paragraph(f"Status: Approved")
-                            doc.add_paragraph(f"Approved by: {row.get('ApprovedBy', 'N/A')}")
-                            doc.add_paragraph(f"Approved on: {row.get('ApprovalDate', 'N/A')}")
-                            
-                            buffer = BytesIO()
-                            doc.save(buffer)
-                            buffer.seek(0)
-                            
-                            st.download_button(
-                                "Click to save",
-                                data=buffer.getvalue(),
-                                file_name=f"{row.get('SOWNumber', 'SOW')}_Approved_SOW.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                key=f"save_{idx}"
-                            )
         
+        # ========== DOWNLOAD SECTION ==========
         st.divider()
+        st.subheader("📥 Download SOW Document")
+        
+        # Create a selectbox with SOW numbers
+        sow_options = df['SOWNumber'].unique().tolist()
+        
+        # Create display names for each SOW
+        sow_display_names = []
+        for sow in sow_options:
+            sow_name = df[df['SOWNumber'] == sow]['SOWName'].iloc[0]
+            display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''}"
+            sow_display_names.append(display_name)
+        
+        # Create a dictionary for mapping display names to actual values
+        sow_mapping = dict(zip(sow_display_names, sow_options))
+        
+        # Selectbox for SOW
+        selected_display = st.selectbox(
+            "Select SOW to download:",
+            options=sow_display_names,
+            key="published_sow_select",
+            index=0
+        )
+        
+        # Get actual SOW number from display name
+        selected_sow = sow_mapping[selected_display]
+        
+        # Download button
+        download_clicked = st.button(
+            "⬇️ Download Selected SOW", 
+            use_container_width=True,
+            type="primary",
+            key="download_published_btn"
+        )
+        
+        if download_clicked:
+            with st.spinner(f"Fetching document for {selected_sow}..."):
+                # Find the selected row
+                selected_row = df[df['SOWNumber'] == selected_sow].iloc[0]
+                
+                # Try to get document from SharePoint using the flow
+                document_id = selected_row.get('ID')
+                
+                if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
+                    document_bytes = sharepoint_service.get_document(item_id=document_id)
+                    
+                    if document_bytes:
+                        # Create download button immediately
+                        filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
+                        
+                        st.success("✅ Document ready for download!")
+                        st.download_button(
+                            f"📥 Click to download: {selected_sow}",
+                            data=document_bytes,
+                            file_name=filename,
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True,
+                            key=f"download_published_{selected_sow}"
+                        )
+                    else:
+                        st.warning("⚠️ Document not found in SharePoint.")
+                        # Create a fallback document
+                        from docx import Document
+                        doc = Document()
+                        doc.add_heading(f"SOW: {selected_sow}", 0)
+                        doc.add_paragraph(f"SOW Name: {selected_row.get('SOWName', 'N/A')}")
+                        doc.add_paragraph(f"Client: {selected_row.get('Client', 'N/A')}")
+                        doc.add_paragraph(f"Project Type: {selected_row.get('ProjectType', 'N/A')}")
+                        doc.add_paragraph(f"Status: {selected_row.get('Status', 'N/A')}")
+                        doc.add_paragraph(f"Created By: {selected_row.get('CreatedBy', 'N/A')}")
+                        doc.add_paragraph(f"Created Date: {selected_row.get('GeneratedDate', 'N/A')}")
+                        
+                        buffer = BytesIO()
+                        doc.save(buffer)
+                        buffer.seek(0)
+                        
+                        st.download_button(
+                            "📝 Download Summary Document",
+                            data=buffer.getvalue(),
+                            file_name=f"{selected_sow}_Summary.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True
+                        )
+                else:
+                    st.error("❌ Document ID not found or get_document flow not configured.")
+        
+        # ========== EXPORT DATA SECTION ==========
+        st.divider()
+        st.subheader("📤 Export All Published Data")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Export to CSV
+            csv = df.to_csv(index=False)
+            st.download_button(
+                "📥 Download as CSV",
+                data=csv,
+                file_name=f"published_sows_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="export_published_csv_btn"
+            )
+        
+        with col2:
+            # Export to Excel
+            excel_buffer = BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Published SOWs')
+            
+            st.download_button(
+                "📊 Download as Excel",
+                data=excel_buffer.getvalue(),
+                file_name=f"published_sows_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="export_published_excel_btn"
+            )
+    
+    elif not st.session_state.get('published_sows_df') and not load_clicked:
+        # Initial state - show instructions
+        st.info("👆 Click 'Load Published SOWs' button to view all approved SOW documents")
+        st.markdown("""
+        ### How to use:
+        1. Select filters from the dropdowns above
+        2. Click **Load Published SOWs** button
+        3. View all published SOW records in the interactive dataframe
+        4. Select a SOW number from the dropdown below the table
+        5. Click **Download Selected SOW** to download the document
+        
+        ### Features:
+        - **View all published SOW records** (approved status)
+        - **Filter** by client and project type
+        - **Download individual SOW documents** by selecting from the dropdown
+        - **Export all published data** as CSV or Excel
+        
+        ### Note:
+        - Only approved SOWs are shown by default
+        - All users can access this page to view published SOWs
+        - Legal team members can also view pending and rejected SOWs from the Approval Dashboard
+        """)
+    
+    # Add a reset button at the bottom
+    st.divider()
+    if st.button("🔄 Clear & Refresh", type="secondary", use_container_width=True):
+        st.session_state.published_sows_df = None
+        st.rerun()
 
 # ============================================================================
 # MAIN APPLICATION
@@ -2567,27 +3170,32 @@ def main():
     # Navigation
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Show different pages based on user role
-    if st.session_state.user_role == 'legal':
-        pages = ["SOW Generator", "Approval Dashboard", "Published SOWs"]
-    else:
-        pages = ["SOW Generator", "Published SOWs"]
-    
-    # Navigation tabs
-    tab = st.radio(
-        "Select Page:",
-        pages,
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    
-    # Page routing
-    if tab == "SOW Generator":
+    # Show different pages based on user role and edit mode
+    if st.session_state.edit_sow_mode:
+        # If in edit mode, always show SOW Generator page
         page_sow_generator()
-    elif tab == "Approval Dashboard":
-        page_approval_dashboard()
-    elif tab == "Published SOWs":
-        page_published_sows()
+    else:
+        # Normal navigation
+        if st.session_state.user_role == 'legal':
+            pages = ["SOW Generator", "Approval Dashboard", "Published SOWs"]
+        else:
+            pages = ["SOW Generator", "Published SOWs"]
+        
+        # Navigation tabs
+        tab = st.radio(
+            "Select Page:",
+            pages,
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        
+        # Page routing
+        if tab == "SOW Generator":
+            page_sow_generator()
+        elif tab == "Approval Dashboard":
+            page_approval_dashboard()
+        elif tab == "Published SOWs":
+            page_published_sows()
 
 # ============================================================================
 # RUN APPLICATION
@@ -2598,4 +3206,5 @@ if __name__ == "__main__":
     except Exception as e:
         st.error(f"🚨 Application error: {str(e)}")
         st.info("Please check the Power Automate configuration in the Config class.")
-        st.button("🔄 Restart Application", on_click=st.rerun)
+        st.button("🔄 Restart Application", on_click=st.rerun())
+
