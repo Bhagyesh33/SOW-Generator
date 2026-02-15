@@ -563,15 +563,28 @@ class ExcelExporter:
         os.makedirs(self.output_folder, exist_ok=True)
     
     def create_fixed_fee_milestone_excel(self, sow_data, milestone_df):
-        """Create Excel file for Fixed Fee milestone payments"""
+        """Create Excel file for Fixed Fee milestone payments - UPDATED WITH BETTER ERROR HANDLING"""
         try:
-            # Extract data
+            # Extract data with better defaults
             sow_number = sow_data.get("sow_num", "UNKNOWN")
             sow_name = sow_data.get("sow_name", "Unknown SOW")
             client = sow_data.get("Client_Name", "Unknown Client")
-            total_fees = sow_data.get("Fees_al", 0)
+            total_fees = float(sow_data.get("Fees_al", 0))
+            
+            # Handle date conversion
             start_date = sow_data.get("start_date", date.today())
+            if isinstance(start_date, str):
+                try:
+                    start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+                except:
+                    start_date = date.today()
+            
             end_date = sow_data.get("end_date", date.today())
+            if isinstance(end_date, str):
+                try:
+                    end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+                except:
+                    end_date = date.today()
             
             # Create workbook
             wb = openpyxl.Workbook()
@@ -606,7 +619,7 @@ class ExcelExporter:
             
             # Column headers for milestones
             headers = ["Milestone #", "Services / Deliverables", "Due Date", 
-                      "Payment Allocation (%)", "Payment Amount ($)"]
+                    "Payment Allocation (%)", "Payment Amount ($)"]
             
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=8, column=col, value=header)
@@ -618,12 +631,42 @@ class ExcelExporter:
             
             # Write milestone data
             if milestone_df is not None and not milestone_df.empty:
+                # Ensure we have the right column names
+                column_mapping = {
+                    'milestone_no': ['milestone_no', 'Milestone #', 'Milestone No'],
+                    'services': ['services', 'Services', 'Services / Deliverables'],
+                    'due_date': ['due_date', 'Due Date', 'Milestone Due Date'],
+                    'allocation': ['allocation', 'Allocation', 'Payment Allocation (%)'],
+                    'net_pay': ['net_pay', 'Net Pay', 'Payment Amount ($)', 'Payment']
+                }
+                
+                # Map columns if needed
+                for target_col, possible_names in column_mapping.items():
+                    if target_col not in milestone_df.columns:
+                        for possible_name in possible_names:
+                            if possible_name in milestone_df.columns:
+                                milestone_df[target_col] = milestone_df[possible_name]
+                                break
+                
+                # Convert date columns
+                if 'due_date' in milestone_df.columns:
+                    milestone_df['due_date'] = pd.to_datetime(milestone_df['due_date']).dt.date
+                
+                # Write data rows
                 for idx, row in enumerate(milestone_df.itertuples(), 9):
-                    ws.cell(row=idx, column=1, value=row.milestone_no)
-                    ws.cell(row=idx, column=2, value=row.services)
-                    ws.cell(row=idx, column=3, value=row.due_date.strftime('%Y-%m-%d'))
-                    ws.cell(row=idx, column=4, value=row.allocation)
-                    ws.cell(row=idx, column=5, value=row.net_pay)
+                    # Get values with defaults
+                    milestone_no = getattr(row, 'milestone_no', f'M{idx-8}') if hasattr(row, 'milestone_no') else f'M{idx-8}'
+                    services = getattr(row, 'services', '') if hasattr(row, 'services') else ''
+                    due_date = getattr(row, 'due_date', date.today()) if hasattr(row, 'due_date') else date.today()
+                    allocation = float(getattr(row, 'allocation', 0)) if hasattr(row, 'allocation') else 0
+                    net_pay = float(getattr(row, 'net_pay', 0)) if hasattr(row, 'net_pay') else 0
+                    
+                    # Write values
+                    ws.cell(row=idx, column=1, value=milestone_no)
+                    ws.cell(row=idx, column=2, value=services)
+                    ws.cell(row=idx, column=3, value=due_date.strftime('%Y-%m-%d') if hasattr(due_date, 'strftime') else str(due_date))
+                    ws.cell(row=idx, column=4, value=allocation)
+                    ws.cell(row=idx, column=5, value=net_pay)
                     
                     # Add formatting
                     for col in range(1, 6):
@@ -637,12 +680,13 @@ class ExcelExporter:
                 # Calculate totals
                 total_row = len(milestone_df) + 10
                 ws.cell(row=total_row, column=4, value="Total:").font = Font(bold=True)
-                ws.cell(row=total_row, column=5, value=milestone_df["net_pay"].sum())
+                total_pay = milestone_df['net_pay'].sum() if 'net_pay' in milestone_df.columns else 0
+                ws.cell(row=total_row, column=5, value=total_pay)
                 ws.cell(row=total_row, column=5).font = Font(bold=True)
                 ws.cell(row=total_row, column=5).number_format = '#,##0.00'
             
             # Add summary section
-            summary_row = total_row + 2 if milestone_df is not None else 15
+            summary_row = total_row + 2 if milestone_df is not None and not milestone_df.empty else 15
             ws.cell(row=summary_row, column=1, value="Summary").font = Font(bold=True, size=12)
             
             # Save file
@@ -655,6 +699,8 @@ class ExcelExporter:
             
         except Exception as e:
             print(f"❌ Error creating milestone Excel: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def create_tm_resource_excel(self, sow_data, resources_df):
@@ -817,7 +863,11 @@ def init_session_state():
         'edit_sow_id': None,
         'edit_sow_status': None,
         'edit_sow_comments': "",
-        'viewing_for_approval': False
+        'viewing_for_approval': False,
+        'submit_with_upload': False,  # NEW: Track if submit with upload is checked
+        'auto_upload_completed': False,
+        'word_document_url': '',  # NEW: Store Word document URL
+        'excel_document_url': ''
     }
     
     for key, value in defaults.items():
@@ -1063,6 +1113,198 @@ def prepare_sow_data_for_storage(form_data, document_url=""):
     
     return sow_record
 
+
+
+# Add this to the SharePointService class
+
+def update_sow_record(self, item_id, sow_data):
+    """Update existing SOW record in SharePoint"""
+    try:
+        payload = {
+            "operation": "update_item",
+            "list_name": self.config.SHAREPOINT_LIST,
+            "item_id": item_id,
+            "updates": sow_data
+        }
+        
+        print(f"🔍 DEBUG: Updating SOW record {item_id}")
+        print(f"Update data: {json.dumps(sow_data, default=str, indent=2)}")
+        
+        result = self._call_power_automate("update_status", payload)  # Reusing update_status flow
+        
+        if result:
+            return {
+                "success": True,
+                "data": result,
+                "message": "SOW record updated successfully"
+            }
+        return {
+            "success": False,
+                "message": "Failed to update SOW record"
+            }
+    except Exception as e:
+        print(f"❌ Error updating SOW record: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }
+    
+
+
+def collect_form_data_from_session():
+    """Collect all form data from session state"""
+    form_data = {
+        "option": st.session_state.get(f"project_type_{st.session_state.reset_trigger}", ""),
+        "sow_num": st.session_state.get(f"sow_num_{st.session_state.reset_trigger}", ""),
+        "sow_name": st.session_state.get(f"sow_name_{st.session_state.reset_trigger}", ""),
+        "Client_Name": st.session_state.get(f"client_{st.session_state.reset_trigger}", ""),
+        "start_date": st.session_state.get(f"start_date_{st.session_state.reset_trigger}", date.today()),
+        "end_date": st.session_state.get(f"end_date_{st.session_state.reset_trigger}", date.today()),
+        "scope_text": st.session_state.get(f"scope_{st.session_state.reset_trigger}", ""),
+        "ser_del": st.session_state.get(f"ser_del_{st.session_state.reset_trigger}", ""),
+        "pm_client": st.session_state.get(f"pm_client_{st.session_state.reset_trigger}", ""),
+        "pm_sp": st.session_state.get(f"pm_sp_{st.session_state.reset_trigger}", ""),
+        "mg_client": st.session_state.get(f"mg_client_{st.session_state.reset_trigger}", ""),
+        "mg_sp": st.session_state.get(f"mg_sp_{st.session_state.reset_trigger}", ""),
+        "additional_personnel": st.session_state.get(f"additional_personnel_{st.session_state.reset_trigger}", ""),
+    }
+    
+    # Add project-specific data
+    option = form_data["option"]
+    
+    if option == "Fixed Fee":
+        form_data["Fees_al"] = st.session_state.get(f"fees_al_{st.session_state.reset_trigger}", 0)
+        # Get milestone data from session state
+        if hasattr(st.session_state, 'edit_milestone_df'):
+            form_data["milestone_df"] = st.session_state.edit_milestone_df
+    
+    elif option == "T&M":
+        # Get resource data from session state
+        if hasattr(st.session_state, 'edit_resources_df'):
+            form_data["resources_df"] = st.session_state.edit_resources_df
+    
+    elif option == "Change Order":
+        form_data.update({
+            "Change": st.session_state.get(f"change_{st.session_state.reset_trigger}", ""),
+            "Fees_co": st.session_state.get(f"fees_co_{st.session_state.reset_trigger}", 0),
+            "Fees_sow": st.session_state.get(f"fees_sow_{st.session_state.reset_trigger}", 0),
+            "difference": st.session_state.get(f"difference_{st.session_state.reset_trigger}", 0)
+        })
+    
+    return form_data
+
+
+
+def prepare_sow_data_for_update(form_data, item_id):
+    """Prepare SOW data for update"""
+    
+    # Convert dates to string
+    def convert_date(obj):
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        return obj
+    
+    # Calculate work days
+    workdays = networkdays(
+        form_data.get("start_date", date.today()),
+        form_data.get("end_date", date.today())
+    )
+    
+    # Prepare additional data
+    additional_data = {
+        "generation_timestamp": datetime.now().isoformat(),
+        "last_modified_by": st.session_state.user_email,
+        "last_modified_date": datetime.now().isoformat(),
+        "complete_scope": form_data.get("scope_text", ""),
+        "complete_services": form_data.get("ser_del", ""),
+        "project_specific": {}
+    }
+    
+    # Add project-specific data
+    if form_data.get("option") == "T&M":
+        resources_df = form_data.get("resources_df")
+        if resources_df is not None and not resources_df.empty:
+            additional_data["project_specific"]["resources"] = resources_df.to_dict(orient="records")
+            if "Estimated $" in resources_df.columns:
+                additional_data["project_specific"]["resources_total"] = resources_df["Estimated $"].sum()
+    
+    elif form_data.get("option") == "Fixed Fee":
+        additional_data["project_specific"]["fees"] = form_data.get("Fees_al", 0)
+        milestone_df = form_data.get("milestone_df")
+        if milestone_df is not None and not milestone_df.empty:
+            additional_data["project_specific"]["milestones"] = milestone_df.to_dict(orient="records")
+            if "net_pay" in milestone_df.columns:
+                additional_data["project_specific"]["milestone_total"] = milestone_df["net_pay"].sum()
+    
+    elif form_data.get("option") == "Change Order":
+        additional_data["project_specific"].update({
+            "change_order": form_data.get("Change", ""),
+            "fees_co": form_data.get("Fees_co", 0),
+            "fees_sow": form_data.get("Fees_sow", 0),
+            "difference": form_data.get("difference", 0)
+        })
+    
+    # Prepare update payload
+    sow_update = {
+        "Title": form_data.get("sow_name", ""),
+        "SOWName": form_data.get("sow_name", ""),
+        "Client": form_data.get("Client_Name", ""),
+        "ProjectType": form_data.get("option", ""),
+        "StartDate": convert_date(form_data.get("start_date", date.today())),
+        "EndDate": convert_date(form_data.get("end_date", date.today())),
+        "ScopeSummary": form_data.get("scope_text", "")[:1000],
+        "ServicesDeliverables": form_data.get("ser_del", "")[:1000],
+        "AdditionalPersonnel": form_data.get("additional_personnel", ""),
+        "WorkDays": workdays,
+        "PMClient": form_data.get("pm_client", ""),
+        "PMServiceProvider": form_data.get("pm_sp", ""),
+        "ManagementClient": form_data.get("mg_client", ""),
+        "ManagementServiceProvider": form_data.get("mg_sp", ""),
+        "AdditionalData": json.dumps(additional_data, default=str)
+    }
+    
+    # Add TotalValue for certain project types
+    if form_data.get("option") == "Fixed Fee":
+        sow_update["TotalValue"] = float(form_data.get("Fees_al", 0))
+    elif form_data.get("option") == "T&M":
+        resources_df = form_data.get("resources_df")
+        if resources_df is not None and "Estimated $" in resources_df.columns:
+            sow_update["TotalValue"] = float(resources_df["Estimated $"].sum())
+    elif form_data.get("option") == "Change Order":
+        sow_update["TotalValue"] = float(form_data.get("difference", 0))
+    
+    return sow_update
+
+def save_edited_sow():
+    """Save edited SOW data back to SharePoint"""
+    with st.spinner("Saving changes..."):
+        try:
+            # Collect all form data
+            form_data = collect_form_data_from_session()
+            
+            # Prepare update data
+            sow_update = prepare_sow_data_for_update(form_data, st.session_state.edit_sow_id)
+            
+            # Update in SharePoint
+            sharepoint_service = st.session_state.sharepoint_service
+            result = sharepoint_service.update_sow_record(
+                item_id=st.session_state.edit_sow_id,
+                sow_data=sow_update
+            )
+            
+            if result["success"]:
+                st.success("✅ Changes saved successfully!")
+                
+                # Update session state with new data
+                st.session_state.edit_sow_data.update(sow_update)
+                
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error(f"❌ Failed to save changes: {result.get('message', 'Unknown error')}")
+                
+        except Exception as e:
+            st.error(f"❌ Error saving changes: {str(e)}")
 # ============================================================================
 # LOGIN SYSTEM
 # ============================================================================
@@ -1290,7 +1532,7 @@ class TemplateManager:
 
 
 def load_sow_data_for_edit_mode(sow_data):
-    """Load SOW data into session state for edit mode"""
+    """Load SOW data into session state for edit mode with editable dataframes"""
     try:
         # Parse additional data
         additional_data = {}
@@ -1299,19 +1541,25 @@ def load_sow_data_for_edit_mode(sow_data):
         except:
             additional_data = {}
         
-        # Extract resources for T&M projects
+        # Extract resources for T&M projects - make editable
         if sow_data.get("ProjectType") == "T&M":
             resources_list = additional_data.get("project_specific", {}).get("resources", [])
             if resources_list:
                 resources_df = pd.DataFrame(resources_list)
                 st.session_state.edit_resources_df = resources_df
+                
+                # Store as editable dataframe in session state
+                st.session_state.editable_resources = resources_df.copy()
         
-        # Extract milestones for Fixed Fee projects
+        # Extract milestones for Fixed Fee projects - make editable
         elif sow_data.get("ProjectType") == "Fixed Fee":
             milestones_list = additional_data.get("project_specific", {}).get("milestones", [])
             if milestones_list:
                 milestone_df = pd.DataFrame(milestones_list)
                 st.session_state.edit_milestone_df = milestone_df
+                
+                # Store as editable dataframe in session state
+                st.session_state.editable_milestones = milestone_df.copy()
         
         return True
     except Exception as e:
@@ -1361,7 +1609,8 @@ def page_sow_generator():
                 help="Select the client for this SOW",
                 index=["BSC", "Abiomed", "Cognex", "Itaros", "Other"].index(
                     st.session_state.edit_sow_data.get("Client", "BSC")
-                ) if st.session_state.edit_sow_data.get("Client") in ["BSC", "Abiomed", "Cognex", "Itaros", "Other"] else 0
+                ) if st.session_state.edit_sow_data.get("Client") in ["BSC", "Abiomed", "Cognex", "Itaros", "Other"] else 0,
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
             
             option = st.selectbox(
@@ -1371,7 +1620,8 @@ def page_sow_generator():
                 help="Select the project type to automatically choose the template",
                 index=["Fixed Fee", "T&M", "Change Order"].index(
                     st.session_state.edit_sow_data.get("ProjectType", "Fixed Fee")
-                ) if st.session_state.edit_sow_data.get("ProjectType") in ["Fixed Fee", "T&M", "Change Order"] else 0
+                ) if st.session_state.edit_sow_data.get("ProjectType") in ["Fixed Fee", "T&M", "Change Order"] else 0,
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
         else:
             Client_Name = st.selectbox(
@@ -1806,6 +2056,8 @@ def page_sow_generator():
                 currency_value = resources_df["Estimated $"].sum()
                 currency_value_str = f"${currency_value:,.2f}"
                 st.success(f"💰 **Total Contract Value: {currency_value_str}**")
+
+    
     
     # ========== FIXED FEE MILESTONES ==========
     # ========== FIXED FEE MILESTONES ==========
@@ -1975,6 +2227,15 @@ def page_sow_generator():
                     st.session_state.edit_sow_mode = False
                     st.session_state.viewing_for_approval = False
                     st.rerun()
+
+        # ========== SAVE CHANGES BUTTON (EDIT MODE ONLY) ==========
+        if st.session_state.edit_sow_mode and st.session_state.get('edit_mode_enabled', False):
+            st.divider()
+            col1, col2, col3 = st.columns([1, 2, 1])
+            
+            with col2:
+                if st.button("💾 Save Changes", type="primary", use_container_width=True):
+                    save_edited_sow()
         
         # Back button
         if st.button("⬅️ Back to Approval Dashboard", use_container_width=True):
@@ -1988,17 +2249,26 @@ def page_sow_generator():
         st.divider()
         
         # ADD THIS CHECKBOX BEFORE THE GENERATE BUTTON
-        col_checkbox, _ = st.columns([1, 3])
+        col_checkbox, col_info = st.columns([1, 3])
         with col_checkbox:
-            show_buttons = st.checkbox(
-                "Generate SOW with Submit request", 
-                value=False,  # Default is unchecked
-                key=f"show_buttons_checkbox_{st.session_state.reset_trigger}",
-                help="Check this box to reveal download and upload buttons"
+            submit_with_upload = st.checkbox(
+                "✅ Generate SOW with Submit request (Auto-upload to SharePoint)", 
+                value=False,
+                key=f"submit_with_upload_{st.session_state.reset_trigger}",
+                help="Check this box to generate SOW and automatically upload to SharePoint"
             )
-        
+            
+            # Store checkbox state in session state
+            st.session_state.submit_with_upload = submit_with_upload
+
+        with col_info:
+            if submit_with_upload:
+                st.info("🔄 When you click 'Submit SOW Request', the document will be automatically uploaded to SharePoint after generation.")
+            else:
+                st.info("📝 When you click 'Submit SOW Request', you'll need to manually upload to SharePoint using the upload button.")
+
         col1, col2, col3 = st.columns([1, 2, 1])
-        
+
         with col2:
             generate_btn = st.button(
                 "🚀 Submit SOW Request",
@@ -2006,7 +2276,7 @@ def page_sow_generator():
                 use_container_width=True,
                 help="Click to generate the SOW document"
             )
-        
+
         if generate_btn:
             generate_sow_document(
                 option=option,
@@ -2024,7 +2294,8 @@ def page_sow_generator():
                 additional_personnel=additional_personnel,
                 resources_df=resources_df,
                 milestone_df=milestone_df,
-                template_manager=template_manager
+                template_manager=template_manager,
+                auto_upload=submit_with_upload  # Pass the checkbox value
             )
     
     # ========== DOWNLOAD SECTION ==========
@@ -2033,7 +2304,8 @@ def page_sow_generator():
 
 def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, end_date,
                          scope_text, ser_del, pm_client, pm_sp, mg_client, mg_sp,
-                         additional_personnel, resources_df, milestone_df, template_manager):
+                         additional_personnel, resources_df, milestone_df, template_manager,
+                         auto_upload=False):  # NEW: Add auto_upload parameter
     """Generate SOW document - FIXED VERSION"""
     
     with st.spinner("Generating SOW document..."):
@@ -2062,9 +2334,9 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             Fees_sow_value = 0.0
             if option == "Change Order":
                 # Try to get values from session state
-                difference_value = Fees_co = st.session_state.get(f"fees_co_{st.session_state.reset_trigger}", 10000.0) - st.session_state.get(f"fees_sow_{st.session_state.reset_trigger}", 5000.0)
                 Fees_co_value = st.session_state.get(f"fees_co_{st.session_state.reset_trigger}", 10000.0)
                 Fees_sow_value = st.session_state.get(f"fees_sow_{st.session_state.reset_trigger}", 5000.0)
+                difference_value = Fees_co_value - Fees_sow_value
             
             # Prepare context based on project type
             context = {
@@ -2085,7 +2357,6 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             }
             
             # Add project-specific data
-                        # Add project-specific data
             if option == "T&M" and resources_df is not None:
                 context["resources"] = resources_df.to_dict(orient="records")
                 context["currency_value"] = currency_value
@@ -2197,17 +2468,175 @@ def generate_sow_document(option, sow_num, sow_name, Client_Name, start_date, en
             # Auto-save to SharePoint
             auto_save_to_sharepoint()
             
+            # NEW: Auto-upload if checkbox is checked
+            if auto_upload:
+                st.info("🔄 Auto-upload to SharePoint enabled - Uploading documents...")
+                upload_document_to_sharepoint()
+                st.session_state.auto_upload_completed = True
+                st.success("✅ Auto-upload to SharePoint completed successfully!")
+                st.balloons()
+            
         except Exception as e:
             st.error(f"❌ Error generating document: {str(e)}")
             st.exception(e)
 
+
+def generate_approved_documents(form_data):
+    """Generate SOW and Excel documents on approval"""
+    try:
+        template_manager = TemplateManager()
+        excel_exporter = ExcelExporter()
+        
+        result = {
+            "success": True,
+            "message": "",
+            "document_url": "",
+            "excel_url": ""
+        }
+        
+        # Generate SOW document
+        context = prepare_document_context(form_data)
+        template_stream = template_manager.get_template(form_data.get("option", ""))
+        
+        doc = DocxTemplate(template_stream)
+        doc.render(context)
+        
+        sow_buffer = BytesIO()
+        doc.save(sow_buffer)
+        sow_buffer.seek(0)
+        
+        # Store in session state for upload
+        st.session_state.file_data = sow_buffer.getvalue()
+        st.session_state.generated_file_path = f"{form_data.get('sow_num', '')} - {form_data.get('sow_name', '')}.docx"
+        st.session_state.form_data = form_data
+        
+        # Generate and store Excel files in session state
+        if form_data.get("option") == "Fixed Fee" and form_data.get("milestone_df") is not None:
+            milestone_df = form_data.get("milestone_df")
+            if not milestone_df.empty:
+                excel_path = excel_exporter.create_fixed_fee_milestone_excel(form_data, milestone_df)
+                if excel_path and os.path.exists(excel_path):
+                    with open(excel_path, 'rb') as f:
+                        st.session_state.fixed_fee_excel_data = f.read()
+                    st.session_state.fixed_fee_excel_name = f"{form_data.get('sow_num', '')}_Milestone_Payments.xlsx"
+                    st.info(f"📊 Milestone payment Excel file created for approval")
+        
+        elif form_data.get("option") == "T&M" and form_data.get("resources_df") is not None:
+            resources_df = form_data.get("resources_df")
+            if not resources_df.empty:
+                excel_path = excel_exporter.create_tm_resource_excel(form_data, resources_df)
+                if excel_path and os.path.exists(excel_path):
+                    with open(excel_path, 'rb') as f:
+                        st.session_state.tm_excel_data = f.read()
+                    st.session_state.tm_excel_name = f"{form_data.get('sow_num', '')}_Resource_Details.xlsx"
+                    st.info(f"📊 Resource details Excel file created for approval")
+        
+        # Upload all documents using the same function
+        upload_result = upload_document_to_sharepoint()
+        
+        if upload_result and upload_result.get("success"):
+            result["document_url"] = upload_result.get("word_url", "")
+            result["excel_url"] = upload_result.get("excel_url", "")
+            result["message"] = "Documents generated and uploaded successfully"
+        else:
+            result["success"] = False
+            result["message"] = upload_result.get("message", "Failed to upload documents")
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error generating approved documents: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+def prepare_document_context(form_data):
+    """Prepare document context for template rendering"""
+    context = {
+        "sow_num": form_data.get("sow_num", ""),
+        "sow_name": form_data.get("sow_name", ""),
+        "client": form_data.get("Client_Name", ""),
+        "project_type": form_data.get("option", ""),
+        "start_date": form_data.get("start_date", date.today()).strftime("%B %d, %Y"),
+        "end_date": form_data.get("end_date", date.today()).strftime("%B %d, %Y"),
+        "generated_date": datetime.now().strftime("%B %d, %Y"),
+        "scope_text": form_data.get("scope_text", ""),
+        "ser_del": form_data.get("ser_del", ""),
+        "pm_client": form_data.get("pm_client", ""),
+        "pm_sp": form_data.get("pm_sp", ""),
+        "mg_client": form_data.get("mg_client", ""),
+        "mg_sp": form_data.get("mg_sp", ""),
+        "additional_personnel": form_data.get("additional_personnel", "")
+    }
+    
+    # Add project-specific data
+    if form_data.get("option") == "Fixed Fee":
+        context["Fees"] = form_data.get("Fees_al", 0)
+        if form_data.get("milestone_df") is not None:
+            context["milestones"] = form_data["milestone_df"].to_dict(orient="records")
+            context["milestone_total"] = form_data["milestone_df"]["net_pay"].sum() if "net_pay" in form_data["milestone_df"].columns else 0
+    
+    elif form_data.get("option") == "T&M":
+        if form_data.get("resources_df") is not None:
+            context["resources"] = form_data["resources_df"].to_dict(orient="records")
+            context["currency_value"] = form_data["resources_df"]["Estimated $"].sum() if "Estimated $" in form_data["resources_df"].columns else 0
+            context["currency_value_str"] = f"${context['currency_value']:,.2f}"
+    
+    elif form_data.get("option") == "Change Order":
+        context.update({
+            "Change": form_data.get("Change", ""),
+            "Fees_co": form_data.get("Fees_co", 0),
+            "Fees_sow": form_data.get("Fees_sow", 0),
+            "difference": form_data.get("difference", 0)
+        })
+    
+    return context
+
+
 def handle_approval_rejection(action):
-    """Handle approval/rejection actions"""
+    """Handle approval/rejection actions - Generate documents on approval"""
     with st.spinner(f"Processing {action.lower()}..."):
         try:
             sharepoint_service = st.session_state.sharepoint_service
             
-            # Call update status flow
+            # If approving, generate and upload documents first
+            if action == Config.STATUS_APPROVED:
+                # Collect current form data
+                form_data = collect_form_data_from_session()
+                
+                # Show progress
+                with st.spinner("📄 Generating and uploading SOW documents..."):
+                    # Generate documents
+                    doc_result = generate_approved_documents(form_data)
+                    
+                    if not doc_result["success"]:
+                        st.error(f"Failed to generate documents: {doc_result.get('message', 'Unknown error')}")
+                        return False
+                    
+                    # Update status with document URLs
+                    updates = {
+                        "status": action,
+                        "approver_comments": st.session_state.get("approval_comments", ""),
+                        "approved_by": st.session_state.user_email,
+                        "approval_date": datetime.now().isoformat(),
+                        "DocumentURL": doc_result.get("document_url", ""),
+                        "ExcelURL": doc_result.get("excel_url", "")
+                    }
+                    
+                    st.success("✅ Documents generated and uploaded successfully!")
+            else:
+                # For rejection, just update status
+                updates = {
+                    "status": action,
+                    "approver_comments": st.session_state.get("approval_comments", ""),
+                    "rejected_by": st.session_state.user_email,
+                    "rejection_date": datetime.now().isoformat()
+                }
+            
+            # Update status in SharePoint
             result = sharepoint_service.update_sow_status(
                 item_id=st.session_state.edit_sow_id,
                 status=action,
@@ -2216,6 +2645,8 @@ def handle_approval_rejection(action):
             )
             
             if result["success"]:
+                if action == Config.STATUS_APPROVED:
+                    st.balloons()
                 return True
             else:
                 st.error(f"Failed to {action.lower()} SOW: {result.get('message', 'Unknown error')}")
@@ -2223,6 +2654,8 @@ def handle_approval_rejection(action):
                 
         except Exception as e:
             st.error(f"Error: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
             return False
 
 def auto_save_to_sharepoint():
@@ -2311,11 +2744,11 @@ def debug_form_data(form_data):
 def show_download_section():
     """Show download and upload options - UPDATED with Excel downloads"""
 
-    checkbox_key = f"show_buttons_checkbox_{st.session_state.reset_trigger}"
-    if not st.session_state.get(checkbox_key, False):
-        st.info("ℹ️ **Buttons are hidden** - Check the 'Show download/upload options' checkbox to reveal download and upload buttons.")
-        st.divider()
-        return
+    # Show auto-upload status
+    if st.session_state.get('auto_upload_completed', False):
+        st.success("✅ Document has been automatically uploaded to SharePoint!")
+        st.balloons()
+    
     st.divider()
     st.subheader("📄 Document Ready")
     
@@ -2328,7 +2761,7 @@ def show_download_section():
             # Word Document
             st.markdown("#### 📝 SOW Document")
             st.download_button(
-                "Download SOW Document",
+                "📥 Download SOW Document",
                 data=st.session_state.file_data,
                 file_name=st.session_state.generated_file_path,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -2342,7 +2775,7 @@ def show_download_section():
             if hasattr(st.session_state, 'fixed_fee_excel_data'):
                 st.markdown("#### 📊 Milestone Payments")
                 st.download_button(
-                    "Download Milestone Excel",
+                    "📥 Download Milestone Excel",
                     data=st.session_state.fixed_fee_excel_data,
                     file_name=st.session_state.fixed_fee_excel_name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2355,10 +2788,19 @@ def show_download_section():
                 st.info("No milestone data available")
         
         with col3:
-            # SharePoint Upload
-            st.markdown("#### ☁️ Upload to SharePoint")
-            if st.button("Upload Documents", use_container_width=True, type="secondary"):
-                upload_document_to_sharepoint()
+            # SharePoint Status
+            st.markdown("#### ☁️ SharePoint Status")
+            if st.session_state.get('auto_upload_completed', False):
+                st.success("✅ Uploaded to SharePoint")
+                st.caption("Document stored in 'SOWs' folder")
+                if hasattr(st.session_state, 'fixed_fee_excel_data'):
+                    st.caption("Excel stored in 'Fixed_Fee_Milestones' folder")
+            elif st.session_state.get('document_uploaded', False):
+                st.success("✅ Uploaded to SharePoint")
+            else:
+                st.warning("⚠️ Not uploaded to SharePoint")
+                if st.button("📤 Upload to SharePoint Now", use_container_width=True, type="secondary"):
+                    upload_document_to_sharepoint()
     
     elif st.session_state.form_data.get('option') == 'T&M':
         # T&M: Show Word doc and Excel resource details
@@ -2368,7 +2810,7 @@ def show_download_section():
             # Word Document
             st.markdown("#### 📝 SOW Document")
             st.download_button(
-                "Download SOW Document",
+                "📥 Download SOW Document",
                 data=st.session_state.file_data,
                 file_name=st.session_state.generated_file_path,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -2382,7 +2824,7 @@ def show_download_section():
             if hasattr(st.session_state, 'tm_excel_data'):
                 st.markdown("#### 👥 Resource Details")
                 st.download_button(
-                    "Download Resource Excel",
+                    "📥 Download Resource Excel",
                     data=st.session_state.tm_excel_data,
                     file_name=st.session_state.tm_excel_name,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2395,10 +2837,19 @@ def show_download_section():
                 st.info("No resource data available")
         
         with col3:
-            # SharePoint Upload
-            st.markdown("#### ☁️ Upload to SharePoint")
-            if st.button("Upload Documents", use_container_width=True, type="secondary"):
-                upload_document_to_sharepoint()
+            # SharePoint Status
+            st.markdown("#### ☁️ SharePoint Status")
+            if st.session_state.get('auto_upload_completed', False):
+                st.success("✅ Uploaded to SharePoint")
+                st.caption("Document stored in 'SOWs' folder")
+                if hasattr(st.session_state, 'tm_excel_data'):
+                    st.caption("Excel stored in 'TM_Resources' folder")
+            elif st.session_state.get('document_uploaded', False):
+                st.success("✅ Uploaded to SharePoint")
+            else:
+                st.warning("⚠️ Not uploaded to SharePoint")
+                if st.button("📤 Upload to SharePoint Now", use_container_width=True, type="secondary"):
+                    upload_document_to_sharepoint()
     
     else:
         # Other project types (Change Order)
@@ -2407,7 +2858,7 @@ def show_download_section():
         with col1:
             st.markdown("#### 📝 SOW Document")
             st.download_button(
-                "Download SOW Document",
+                "📥 Download SOW Document",
                 data=st.session_state.file_data,
                 file_name=st.session_state.generated_file_path,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -2417,9 +2868,16 @@ def show_download_section():
             st.caption("Download the SOW Word document")
         
         with col2:
-            st.markdown("#### ☁️ Upload to SharePoint")
-            if st.button("Upload Documents", use_container_width=True, type="secondary"):
-                upload_document_to_sharepoint()
+            st.markdown("#### ☁️ SharePoint Status")
+            if st.session_state.get('auto_upload_completed', False):
+                st.success("✅ Uploaded to SharePoint")
+                st.caption("Document stored in 'SOWs' folder")
+            elif st.session_state.get('document_uploaded', False):
+                st.success("✅ Uploaded to SharePoint")
+            else:
+                st.warning("⚠️ Not uploaded to SharePoint")
+                if st.button("📤 Upload to SharePoint Now", use_container_width=True, type="secondary"):
+                    upload_document_to_sharepoint()
     
     # Show SOW Details
     if st.session_state.get('sow_saved') and st.session_state.get('current_sow_data'):
@@ -2478,13 +2936,14 @@ def upload_document_to_sharepoint():
             
             if word_result["success"]:
                 upload_success.append(f"Word document to 'SOWs' folder")
+                st.session_state.word_document_url = word_result.get("data", {}).get("url", "")
             else:
                 upload_failed.append(f"Word document: {word_result.get('message', 'Unknown error')}")
             
             # ===== 2. UPLOAD EXCEL FILES =====
             # Determine folder based on project type
             if project_type == "Fixed Fee" and hasattr(st.session_state, 'fixed_fee_excel_data'):
-                excel_folder = "Fixed_Fee_Milestones"  # Separate folder for Fixed Fee Excel files
+                excel_folder = "Fixed_Fee_Milestones"
                 st.info(f"📊 Uploading milestone Excel to '{excel_folder}' folder: {st.session_state.fixed_fee_excel_name}")
                 
                 excel_metadata = {
@@ -2497,7 +2956,6 @@ def upload_document_to_sharepoint():
                     "excel_type": "Milestone Payments"
                 }
                 
-                # Create a custom Power Automate call for Excel uploads
                 excel_result = upload_excel_to_sharepoint_folder(
                     sharepoint_service,
                     st.session_state.fixed_fee_excel_data,
@@ -2508,11 +2966,12 @@ def upload_document_to_sharepoint():
                 
                 if excel_result["success"]:
                     upload_success.append(f"Milestone Excel to '{excel_folder}' folder")
+                    st.session_state.excel_document_url = excel_result.get("data", {}).get("url", "")
                 else:
                     upload_failed.append(f"Milestone Excel: {excel_result.get('message', 'Unknown error')}")
             
             elif project_type == "T&M" and hasattr(st.session_state, 'tm_excel_data'):
-                excel_folder = "TM_Resources"  # Separate folder for T&M Excel files
+                excel_folder = "TM_Resources"
                 st.info(f"👥 Uploading resource Excel to '{excel_folder}' folder: {st.session_state.tm_excel_name}")
                 
                 excel_metadata = {
@@ -2535,6 +2994,7 @@ def upload_document_to_sharepoint():
                 
                 if excel_result["success"]:
                     upload_success.append(f"Resource Excel to '{excel_folder}' folder")
+                    st.session_state.excel_document_url = excel_result.get("data", {}).get("url", "")
                 else:
                     upload_failed.append(f"Resource Excel: {excel_result.get('message', 'Unknown error')}")
             
@@ -2544,34 +3004,53 @@ def upload_document_to_sharepoint():
                 for success_item in upload_success:
                     st.success(f"   ✓ {success_item}")
                 
-                # Create a summary of what was uploaded where
                 st.info("📁 **Files are stored in separate SharePoint folders:**")
                 st.info(f"   • Word Document: 'SOWs' folder")
-                if project_type == "Fixed Fee":
+                if project_type == "Fixed Fee" and hasattr(st.session_state, 'fixed_fee_excel_data'):
                     st.info(f"   • Excel File: 'Fixed_Fee_Milestones' folder")
-                elif project_type == "T&M":
+                elif project_type == "T&M" and hasattr(st.session_state, 'tm_excel_data'):
                     st.info(f"   • Excel File: 'TM_Resources' folder")
+                
+                # Mark auto-upload as completed
+                st.session_state.document_uploaded = True
+                st.session_state.auto_upload_completed = True
+                
+                # Return success status with URLs
+                return {
+                    "success": True,
+                    "word_url": st.session_state.get('word_document_url', ''),
+                    "excel_url": st.session_state.get('excel_document_url', ''),
+                    "message": "Documents uploaded successfully"
+                }
             
             if upload_failed:
                 st.error("❌ Failed Uploads:")
                 for failure in upload_failed:
                     st.error(f"   ✗ {failure}")
-            
-            if upload_success:
-                st.session_state.document_uploaded = True
-                st.balloons()
+                st.session_state.auto_upload_completed = False
                 
-                # Reset after successful upload
-                time.sleep(3)
-                reset_all_fields()
-                st.rerun()
-            else:
-                st.error("❌ All uploads failed!")
+                return {
+                    "success": False,
+                    "message": "Some uploads failed"
+                }
+            
+            if upload_success and not upload_failed:
+                st.balloons()
+                return {
+                    "success": True,
+                    "message": "All documents uploaded successfully"
+                }
                 
         except Exception as e:
             st.error(f"❌ Error uploading documents: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
+            st.session_state.auto_upload_completed = False
+            return {
+                "success": False,
+                "message": str(e)
+            }
+        
 
 def upload_excel_to_sharepoint_folder(sharepoint_service, file_data, file_name, metadata, folder_name):
     """Upload Excel file to specific SharePoint folder"""
@@ -2802,6 +3281,7 @@ def page_approval_dashboard():
                 st.session_state.viewing_for_approval = True
                 st.session_state.edit_sow_data = selected_row.to_dict()
                 st.session_state.edit_sow_id = selected_row.get('ID')
+                st.session_state.edit_mode_enabled = True 
                 
                 # Load the additional data (resources/milestones) for display
                 load_sow_data_for_edit_mode(selected_row.to_dict())
@@ -2887,6 +3367,9 @@ def page_approval_dashboard():
 
 # ============================================================================
 # PAGE 3: PUBLISHED SOWS
+# ============================================================================
+# ============================================================================
+# PAGE 3: PUBLISHED SOWS (UPDATED WITH BETTER ERROR HANDLING)
 # ============================================================================
 def page_published_sows():
     """Published SOWs page for all users to view approved SOWs"""
@@ -3003,7 +3486,7 @@ def page_published_sows():
         
         # ========== DOWNLOAD SECTION ==========
         st.divider()
-        st.subheader("📥 Download SOW Document")
+        st.subheader("📥 Download Documents")
         
         # Create a selectbox with SOW numbers
         sow_options = df['SOWNumber'].unique().tolist()
@@ -3012,7 +3495,8 @@ def page_published_sows():
         sow_display_names = []
         for sow in sow_options:
             sow_name = df[df['SOWNumber'] == sow]['SOWName'].iloc[0]
-            display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''}"
+            project_type = df[df['SOWNumber'] == sow]['ProjectType'].iloc[0]
+            display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({project_type})"
             sow_display_names.append(display_name)
         
         # Create a dictionary for mapping display names to actual values
@@ -3029,19 +3513,58 @@ def page_published_sows():
         # Get actual SOW number from display name
         selected_sow = sow_mapping[selected_display]
         
-        # Download button
-        download_clicked = st.button(
-            "⬇️ Download Selected SOW", 
-            use_container_width=True,
-            type="primary",
-            key="download_published_btn"
-        )
+        # Find the selected row
+        selected_row = df[df['SOWNumber'] == selected_sow].iloc[0]
+        project_type = selected_row.get('ProjectType', '')
         
-        if download_clicked:
-            with st.spinner(f"Fetching document for {selected_sow}..."):
-                # Find the selected row
-                selected_row = df[df['SOWNumber'] == selected_sow].iloc[0]
+        # Debug expander to inspect data structure
+        with st.expander("🔍 Debug: View SOW Data Structure", expanded=False):
+            st.write("Selected SOW Data:")
+            st.json(selected_row.to_dict(), expanded=False)
+            
+            # Parse and show additional data
+            try:
+                additional_data = json.loads(selected_row.get("AdditionalData", "{}"))
+                st.write("Additional Data Structure:")
+                st.json(additional_data, expanded=False)
                 
+                if project_type == "Fixed Fee":
+                    milestones = additional_data.get("project_specific", {}).get("milestones", [])
+                    st.write(f"Milestones found: {len(milestones)}")
+                    if milestones:
+                        st.write("First milestone:", milestones[0] if milestones else "None")
+            except:
+                st.write("Could not parse AdditionalData")
+        
+        # Create two columns for download buttons
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Download SOW Document button
+            download_sow_clicked = st.button(
+                "📄 Download SOW Document", 
+                use_container_width=True,
+                type="primary",
+                key="download_sow_btn"
+            )
+        
+        with col2:
+            # Download Calculation Sheet button (only show for Fixed Fee and T&M)
+            if project_type in ["Fixed Fee", "T&M"]:
+                calculation_sheet_label = "📊 Download Milestone Sheet" if project_type == "Fixed Fee" else "📊 Download Resource Sheet"
+                download_calc_clicked = st.button(
+                    calculation_sheet_label, 
+                    use_container_width=True,
+                    type="secondary",
+                    key="download_calc_btn"
+                )
+            else:
+                st.info("ℹ️ No calculation sheet available for Change Order")
+                download_calc_clicked = False
+        
+        # Handle SOW document download
+        if download_sow_clicked:
+            with st.spinner(f"Fetching SOW document for {selected_sow}..."):
                 # Try to get document from SharePoint using the flow
                 document_id = selected_row.get('ID')
                 
@@ -3059,7 +3582,7 @@ def page_published_sows():
                             file_name=filename,
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                             use_container_width=True,
-                            key=f"download_published_{selected_sow}"
+                            key=f"download_sow_{selected_sow}"
                         )
                     else:
                         st.warning("⚠️ Document not found in SharePoint.")
@@ -3087,6 +3610,163 @@ def page_published_sows():
                         )
                 else:
                     st.error("❌ Document ID not found or get_document flow not configured.")
+        
+        # Handle calculation sheet download
+        if download_calc_clicked:
+            with st.spinner(f"Generating calculation sheet for {selected_sow}..."):
+                try:
+                    # Parse additional data to get milestone/resource information
+                    additional_data = {}
+                    try:
+                        additional_data = json.loads(selected_row.get("AdditionalData", "{}"))
+                        st.write("Debug - Additional Data loaded successfully")
+                    except Exception as e:
+                        st.error(f"Error parsing AdditionalData: {str(e)}")
+                        additional_data = {}
+                    
+                    project_specific = additional_data.get("project_specific", {})
+                    
+                    # Debug output
+                    st.write(f"Debug - Project Type: {project_type}")
+                    st.write(f"Debug - Project Specific Keys: {list(project_specific.keys())}")
+                    
+                    # Create form data structure needed for Excel generation
+                    form_data = {
+                        "sow_num": selected_sow,
+                        "sow_name": selected_row.get("SOWName", ""),
+                        "Client_Name": selected_row.get("Client", ""),
+                        "option": project_type,
+                        "start_date": selected_row.get("StartDate", date.today()),
+                        "end_date": selected_row.get("EndDate", date.today())
+                    }
+                    
+                    excel_exporter = ExcelExporter()
+                    
+                    if project_type == "Fixed Fee":
+                        # Get milestone data
+                        milestones_list = project_specific.get("milestones", [])
+                        st.write(f"Debug - Milestones list length: {len(milestones_list)}")
+                        
+                        if milestones_list and len(milestones_list) > 0:
+                            # Convert to DataFrame
+                            milestone_df = pd.DataFrame(milestones_list)
+                            st.write(f"Debug - Milestone DataFrame shape: {milestone_df.shape}")
+                            st.write(f"Debug - Milestone DataFrame columns: {list(milestone_df.columns)}")
+                            
+                            # Check if required columns exist
+                            required_cols = ['milestone_no', 'services', 'due_date', 'allocation', 'net_pay']
+                            missing_cols = [col for col in required_cols if col not in milestone_df.columns]
+                            
+                            if missing_cols:
+                                st.warning(f"⚠️ Missing columns in milestone data: {missing_cols}")
+                                st.write("Available columns:", list(milestone_df.columns))
+                                
+                                # Try to map columns if they have different names
+                                column_mapping = {
+                                    'milestone_no': ['milestone_no', 'Milestone #', 'Milestone No', 'Milestone Number'],
+                                    'services': ['services', 'Services', 'Services / Deliverables', 'Deliverables'],
+                                    'due_date': ['due_date', 'Due Date', 'Milestone Due Date', 'Date'],
+                                    'allocation': ['allocation', 'Allocation', 'Payment Allocation (%)', 'Allocation %'],
+                                    'net_pay': ['net_pay', 'Net Pay', 'Payment Amount ($)', 'Payment']
+                                }
+                                
+                                for req_col, possible_names in column_mapping.items():
+                                    if req_col not in milestone_df.columns:
+                                        for possible_name in possible_names:
+                                            if possible_name in milestone_df.columns:
+                                                milestone_df[req_col] = milestone_df[possible_name]
+                                                st.write(f"Mapped {possible_name} to {req_col}")
+                                                break
+                            
+                            # Add Fees_al if available
+                            form_data["Fees_al"] = project_specific.get("fees", 0)
+                            st.write(f"Debug - Fees_al: {form_data['Fees_al']}")
+                            
+                            # Generate Excel
+                            excel_path = excel_exporter.create_fixed_fee_milestone_excel(form_data, milestone_df)
+                            st.write(f"Debug - Excel path: {excel_path}")
+                            
+                            if excel_path and os.path.exists(excel_path):
+                                with open(excel_path, 'rb') as f:
+                                    excel_data = f.read()
+                                
+                                excel_filename = f"{selected_sow}_Milestone_Payments.xlsx"
+                                
+                                st.success("✅ Milestone sheet generated successfully!")
+                                st.download_button(
+                                    "📥 Download Milestone Sheet",
+                                    data=excel_data,
+                                    file_name=excel_filename,
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    use_container_width=True,
+                                    key=f"download_milestone_{selected_sow}"
+                                )
+                                
+                                # Clean up temp file
+                                try:
+                                    os.remove(excel_path)
+                                except:
+                                    pass
+                            else:
+                                st.error("❌ Failed to generate milestone sheet - Excel creation failed")
+                                st.write("Debug - Check if ExcelExporter.create_fixed_fee_milestone_excel returned None")
+                        else:
+                            st.warning("⚠️ No milestone data found for this SOW")
+                            st.write("Debug - Milestones list is empty or None")
+                    
+                    elif project_type == "T&M":
+                        # Get resource data
+                        resources_list = project_specific.get("resources", [])
+                        st.write(f"Debug - Resources list length: {len(resources_list)}")
+                        
+                        if resources_list and len(resources_list) > 0:
+                            # Convert to DataFrame
+                            resources_df = pd.DataFrame(resources_list)
+                            st.write(f"Debug - Resource DataFrame shape: {resources_df.shape}")
+                            st.write(f"Debug - Resource DataFrame columns: {list(resources_df.columns)}")
+                            
+                            # Check if required columns exist
+                            required_cols = ['Role', 'Location', 'Start Date', 'End Date', 'Allocation %', 'Hrs/Day', 'Rate/hr ($)', 'Estimated $']
+                            missing_cols = [col for col in required_cols if col not in resources_df.columns]
+                            
+                            if missing_cols:
+                                st.warning(f"⚠️ Missing columns in resource data: {missing_cols}")
+                                st.write("Available columns:", list(resources_df.columns))
+                            
+                            # Generate Excel
+                            excel_path = excel_exporter.create_tm_resource_excel(form_data, resources_df)
+                            st.write(f"Debug - Excel path: {excel_path}")
+                            
+                            if excel_path and os.path.exists(excel_path):
+                                with open(excel_path, 'rb') as f:
+                                    excel_data = f.read()
+                                
+                                excel_filename = f"{selected_sow}_Resource_Details.xlsx"
+                                
+                                st.success("✅ Resource sheet generated successfully!")
+                                st.download_button(
+                                    "📥 Download Resource Sheet",
+                                    data=excel_data,
+                                    file_name=excel_filename,
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    use_container_width=True,
+                                    key=f"download_resource_{selected_sow}"
+                                )
+                                
+                                # Clean up temp file
+                                try:
+                                    os.remove(excel_path)
+                                except:
+                                    pass
+                            else:
+                                st.error("❌ Failed to generate resource sheet - Excel creation failed")
+                        else:
+                            st.warning("⚠️ No resource data found for this SOW")
+                    
+                except Exception as e:
+                    st.error(f"❌ Error generating calculation sheet: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
         
         # ========== EXPORT DATA SECTION ==========
         st.divider()
@@ -3130,18 +3810,20 @@ def page_published_sows():
         2. Click **Load Published SOWs** button
         3. View all published SOW records in the interactive dataframe
         4. Select a SOW number from the dropdown below the table
-        5. Click **Download Selected SOW** to download the document
+        5. Click **Download SOW Document** to download the main SOW document
+        6. Click **Download Milestone Sheet** (for Fixed Fee) or **Download Resource Sheet** (for T&M) to download calculation sheets
         
         ### Features:
         - **View all published SOW records** (approved status)
         - **Filter** by client and project type
         - **Download individual SOW documents** by selecting from the dropdown
+        - **Download calculation sheets** (milestone or resource details) for approved SOWs
         - **Export all published data** as CSV or Excel
         
         ### Note:
         - Only approved SOWs are shown by default
+        - Calculation sheets are available for Fixed Fee and T&M projects
         - All users can access this page to view published SOWs
-        - Legal team members can also view pending and rejected SOWs from the Approval Dashboard
         """)
     
     # Add a reset button at the bottom
