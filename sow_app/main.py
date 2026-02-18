@@ -224,6 +224,40 @@ class Config:
 # SHAREPOINT SERVICE VIA POWER AUTOMATE
 # ============================================================================
 class SharePointService:
+    # Add this to the SharePointService class
+
+    def update_sow_record(self, item_id, sow_data):
+        """Update existing SOW record in SharePoint"""
+        try:
+            payload = {
+                "operation": "update_item",
+                "list_name": self.config.SHAREPOINT_LIST,
+                "item_id": item_id,
+                "updates": sow_data
+            }
+            
+            print(f"🔍 DEBUG: Updating SOW record {item_id}")
+            print(f"Update data: {json.dumps(sow_data, default=str, indent=2)}")
+            
+            result = self._call_power_automate("update_status", payload)  # Reusing update_status flow
+            
+            if result:
+                return {
+                    "success": True,
+                    "data": result,
+                    "message": "SOW record updated successfully"
+                }
+            return {
+                "success": False,
+                    "message": "Failed to update SOW record"
+                }
+        except Exception as e:
+            print(f"❌ Error updating SOW record: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Error: {str(e)}"
+            }
+    
     def __init__(self):
         self.config = Config()
     
@@ -1115,39 +1149,7 @@ def prepare_sow_data_for_storage(form_data, document_url=""):
 
 
 
-# Add this to the SharePointService class
 
-def update_sow_record(self, item_id, sow_data):
-    """Update existing SOW record in SharePoint"""
-    try:
-        payload = {
-            "operation": "update_item",
-            "list_name": self.config.SHAREPOINT_LIST,
-            "item_id": item_id,
-            "updates": sow_data
-        }
-        
-        print(f"🔍 DEBUG: Updating SOW record {item_id}")
-        print(f"Update data: {json.dumps(sow_data, default=str, indent=2)}")
-        
-        result = self._call_power_automate("update_status", payload)  # Reusing update_status flow
-        
-        if result:
-            return {
-                "success": True,
-                "data": result,
-                "message": "SOW record updated successfully"
-            }
-        return {
-            "success": False,
-                "message": "Failed to update SOW record"
-            }
-    except Exception as e:
-        print(f"❌ Error updating SOW record: {str(e)}")
-        return {
-            "success": False,
-            "message": f"Error: {str(e)}"
-        }
     
 
 
@@ -1610,7 +1612,7 @@ def page_sow_generator():
                 index=["BSC", "Abiomed", "Cognex", "Itaros", "Other"].index(
                     st.session_state.edit_sow_data.get("Client", "BSC")
                 ) if st.session_state.edit_sow_data.get("Client") in ["BSC", "Abiomed", "Cognex", "Itaros", "Other"] else 0,
-                disabled=not st.session_state.get('edit_mode_enabled', False)
+                disabled= True
             )
             
             option = st.selectbox(
@@ -1621,7 +1623,7 @@ def page_sow_generator():
                 index=["Fixed Fee", "T&M", "Change Order"].index(
                     st.session_state.edit_sow_data.get("ProjectType", "Fixed Fee")
                 ) if st.session_state.edit_sow_data.get("ProjectType") in ["Fixed Fee", "T&M", "Change Order"] else 0,
-                disabled=not st.session_state.get('edit_mode_enabled', False)
+                disabled= True
             )
         else:
             Client_Name = st.selectbox(
@@ -1702,7 +1704,7 @@ def page_sow_generator():
                 "Start Date",
                 value=start_date,
                 key=f"start_date_{st.session_state.reset_trigger}",
-                disabled=True  # Disable editing in view mode
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
         else:
             start_date = st.date_input(
@@ -1724,7 +1726,7 @@ def page_sow_generator():
                 "End Date",
                 value=end_date,
                 key=f"end_date_{st.session_state.reset_trigger}",
-                disabled=True  # Disable editing in view mode
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
         else:
             end_date = st.date_input(
@@ -1757,14 +1759,14 @@ def page_sow_generator():
                     value=additional_data.get("project_specific", {}).get("change_order", "CO-001"),
                     key=f"change_{st.session_state.reset_trigger}",
                     help="Change order reference number",
-                    disabled=True
+                    disabled=not st.session_state.get('edit_mode_enabled', False)
                 )
                 
                 sow_start_date = st.date_input(
                     "Original SOW Start Date",
                     value=date.today(),
                     key=f"sow_start_{st.session_state.reset_trigger}",
-                    disabled=True
+                    disabled=not st.session_state.get('edit_mode_enabled', False)
                 )
                 
                 Fees_co = st.number_input(
@@ -1772,7 +1774,7 @@ def page_sow_generator():
                     value=float(additional_data.get("project_specific", {}).get("fees_co", 10000.0)),
                     step=1000.0,
                     key=f"fees_co_{st.session_state.reset_trigger}",
-                    disabled=True
+                    disabled=not st.session_state.get('edit_mode_enabled', False)
                 )
             else:
                 Change = st.text_input(
@@ -1801,7 +1803,7 @@ def page_sow_generator():
                     "Original SOW End Date",
                     value=date.today() + timedelta(days=30),
                     key=f"sow_end_{st.session_state.reset_trigger}",
-                    disabled=True
+                    disabled=not st.session_state.get('edit_mode_enabled', False)
                 )
                 
                 Fees_sow = st.number_input(
@@ -1809,7 +1811,7 @@ def page_sow_generator():
                     value=float(additional_data.get("project_specific", {}).get("fees_sow", 5000.0)),
                     step=1000.0,
                     key=f"fees_sow_{st.session_state.reset_trigger}",
-                    disabled=True
+                    disabled=not st.session_state.get('edit_mode_enabled', False)
                 )
             else:
                 sow_end_date = st.date_input(
@@ -1839,7 +1841,7 @@ def page_sow_generator():
                 value=st.session_state.edit_sow_data.get("PMClient", ""),
                 key=f"pm_client_{st.session_state.reset_trigger}",
                 placeholder="Client project manager name",
-                disabled=True
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
             
             mg_client = st.text_input(
@@ -1847,7 +1849,7 @@ def page_sow_generator():
                 value=st.session_state.edit_sow_data.get("ManagementClient", ""),
                 key=f"mg_client_{st.session_state.reset_trigger}",
                 placeholder="Client management contact",
-                disabled=True
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
         else:
             pm_client = st.text_input(
@@ -1869,7 +1871,7 @@ def page_sow_generator():
                 value=st.session_state.edit_sow_data.get("PMServiceProvider", ""),
                 key=f"pm_sp_{st.session_state.reset_trigger}",
                 placeholder="Service provider project manager",
-                disabled=True
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
             
             mg_sp = st.text_input(
@@ -1877,7 +1879,7 @@ def page_sow_generator():
                 value=st.session_state.edit_sow_data.get("ManagementServiceProvider", ""),
                 key=f"mg_sp_{st.session_state.reset_trigger}",
                 placeholder="Service provider management contact",
-                disabled=True
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
         else:
             pm_sp = st.text_input(
@@ -1902,7 +1904,7 @@ def page_sow_generator():
             height=150,
             key=f"scope_{st.session_state.reset_trigger}",
             placeholder="Describe the scope and responsibilities...",
-            disabled=True
+            disabled=not st.session_state.get('edit_mode_enabled', False)
         )
         
         ser_del = st.text_area(
@@ -1911,7 +1913,7 @@ def page_sow_generator():
             height=150,
             key=f"ser_del_{st.session_state.reset_trigger}",
             placeholder="List services and deliverables...",
-            disabled=True
+            disabled=not st.session_state.get('edit_mode_enabled', False)
         )
     else:
         scope_text = st.text_area(
@@ -1945,7 +1947,7 @@ def page_sow_generator():
                 value=float(additional_data.get("project_specific", {}).get("fees", 0)),
                 step=1000.0,
                 key=f"fees_al_{st.session_state.reset_trigger}",
-                disabled=True
+                disabled=not st.session_state.get('edit_mode_enabled', False)
             )
         else:
             Fees_al = st.number_input(
@@ -1962,7 +1964,7 @@ def page_sow_generator():
             value=st.session_state.edit_sow_data.get("AdditionalPersonnel", ""),
             key=f"additional_personnel_{st.session_state.reset_trigger}",
             placeholder="List any additional personnel involved...",
-            disabled=True
+            disabled=not st.session_state.get('edit_mode_enabled', False)
         )
     else:
         additional_personnel = st.text_input(
@@ -1973,6 +1975,8 @@ def page_sow_generator():
     
     # ========== T&M RESOURCES TABLE ==========
     # ========== T&M RESOURCES TABLE ==========
+    # ========== T&M RESOURCES TABLE ==========
+   # ========== T&M RESOURCES TABLE ==========
     resources_df = None
     if option == "T&M":
         st.subheader("👥 Resource Details")
@@ -1991,17 +1995,60 @@ def page_sow_generator():
                 # Convert to DataFrame
                 resources_df = pd.DataFrame(resources_list)
                 
-                # Make it editable for approval dashboard view
-                if st.session_state.viewing_for_approval:
-                    # Display as non-editable for approval view
+                # Convert date strings to date objects for editing
+                for date_col in ['Start Date', 'End Date']:
+                    if date_col in resources_df.columns:
+                        resources_df[date_col] = pd.to_datetime(resources_df[date_col]).dt.date
+                
+                # Make it editable if in edit mode
+                if st.session_state.get('edit_mode_enabled', False):
+                    st.subheader("✏️ Edit Resource Details")
+                    
+                    edited_df = st.data_editor(
+                        resources_df,
+                        num_rows="dynamic",
+                        column_config={
+                            "Role": st.column_config.TextColumn("Role", width="medium", required=True),
+                            "Location": st.column_config.TextColumn("Location", width="small", required=True),
+                            "Start Date": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD", required=True),
+                            "End Date": st.column_config.DateColumn("End Date", format="YYYY-MM-DD", required=True),
+                            "Allocation %": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5, required=True, format="%d%%"),
+                            "Hrs/Day": st.column_config.NumberColumn("Hrs/Day", min_value=1, max_value=24, step=1, required=True),
+                            "Rate/hr ($)": st.column_config.NumberColumn("Rate/hr ($)", min_value=0, step=10, required=True, format="$%.2f"),
+                            "Estimated $": st.column_config.NumberColumn("Estimated $", format="$%.2f", disabled=True)
+                        },
+                        key=f"edit_resources_{st.session_state.reset_trigger}",
+                        hide_index=True,
+                        use_container_width=True
+                    )
+                    
+                    # Recalculate Estimated $ if needed
+                    if not edited_df.empty:
+                        def calculate_cost(row):
+                            try:
+                                days = networkdays(row["Start Date"], row["End Date"])
+                                return round(days * (row["Allocation %"]/100) * row["Hrs/Day"] * row["Rate/hr ($)"], 2)
+                            except:
+                                return 0.0
+                        
+                        edited_df["Estimated $"] = edited_df.apply(calculate_cost, axis=1)
+                    
+                    # Store in session state
+                    st.session_state.editable_resources = edited_df
+                    st.session_state.edit_resources_df = edited_df
+                    resources_df = edited_df
+                    
+                    # Calculate total for display
+                    if "Estimated $" in edited_df.columns:
+                        total_estimated = edited_df["Estimated $"].sum()
+                        st.success(f"💰 **Total Estimated Cost: ${total_estimated:,.2f}**")
+                else:
+                    # Display as read-only
                     st.dataframe(
                         resources_df,
                         use_container_width=True,
                         height=300
                     )
-                else:
-                    # Display as editable DataFrame (for admin users who might need to edit)
-                    st.dataframe(resources_df, use_container_width=True, height=300)
                     
                     # Calculate total for display
                     if "Estimated $" in resources_df.columns:
@@ -2010,7 +2057,7 @@ def page_sow_generator():
             else:
                 st.info("No resource details available")
         else:
-            # Create default resource data
+            # Create default resource data for new SOW
             default_data = [{
                 "Role": "Senior Consultant",
                 "Location": "Remote",
@@ -2026,13 +2073,13 @@ def page_sow_generator():
                 pd.DataFrame(default_data),
                 num_rows="dynamic",
                 column_config={
-                    "Role": st.column_config.TextColumn("Role", width="medium"),
-                    "Location": st.column_config.TextColumn("Location", width="small"),
-                    "Start Date": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD"),
-                    "End Date": st.column_config.DateColumn("End Date", format="YYYY-MM-DD"),
-                    "Allocation %": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5),
-                    "Hrs/Day": st.column_config.NumberColumn("Hrs/Day", min_value=1, max_value=24, step=1),
-                    "Rate/hr ($)": st.column_config.NumberColumn("Rate/hr ($)", min_value=0, step=10)
+                    "Role": st.column_config.TextColumn("Role", width="medium", required=True),
+                    "Location": st.column_config.TextColumn("Location", width="small", required=True),
+                    "Start Date": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD", required=True),
+                    "End Date": st.column_config.DateColumn("End Date", format="YYYY-MM-DD", required=True),
+                    "Allocation %": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5, required=True, format="%d%%"),
+                    "Hrs/Day": st.column_config.NumberColumn("Hrs/Day", min_value=1, max_value=24, step=1, required=True),
+                    "Rate/hr ($)": st.column_config.NumberColumn("Rate/hr ($)", min_value=0, step=10, required=True, format="$%.2f")
                 },
                 key=f"resources_table_{st.session_state.reset_trigger}",
                 hide_index=True
@@ -2056,9 +2103,10 @@ def page_sow_generator():
                 currency_value = resources_df["Estimated $"].sum()
                 currency_value_str = f"${currency_value:,.2f}"
                 st.success(f"💰 **Total Contract Value: {currency_value_str}**")
-
     
-    
+    # ========== FIXED FEE MILESTONES ==========
+    # ========== FIXED FEE MILESTONES ==========
+    # ========== FIXED FEE MILESTONES ==========
     # ========== FIXED FEE MILESTONES ==========
     # ========== FIXED FEE MILESTONES ==========
     milestone_df = None
@@ -2073,21 +2121,54 @@ def page_sow_generator():
             except:
                 additional_data = {}
             
-            # Debug: Show what we found
-            print(f"🔍 DEBUG: Additional data keys: {list(additional_data.keys())}")
-            print(f"🔍 DEBUG: Project specific keys: {list(additional_data.get('project_specific', {}).keys())}")
-            
             milestones_list = additional_data.get("project_specific", {}).get("milestones", [])
             
             if milestones_list:
-                print(f"✅ Found {len(milestones_list)} milestones")
-                
                 # Convert to DataFrame
                 milestone_df = pd.DataFrame(milestones_list)
                 
-                # Display based on view mode
-                if st.session_state.viewing_for_approval:
-                    # Show as non-editable for approval
+                # Convert date strings to date objects for editing
+                if 'due_date' in milestone_df.columns:
+                    # Convert string dates to date objects
+                    milestone_df['due_date'] = pd.to_datetime(milestone_df['due_date']).dt.date
+                
+                # Make it editable if in edit mode
+                if st.session_state.get('edit_mode_enabled', False):
+                    st.subheader("✏️ Edit Milestone Schedule")
+                    
+                    edited_df = st.data_editor(
+                        milestone_df,
+                        num_rows="dynamic",
+                        column_config={
+                            "milestone_no": st.column_config.TextColumn("Milestone #", width="small"),
+                            "services": st.column_config.TextColumn("Services / Deliverables", width="large"),
+                            "due_date": st.column_config.DateColumn("Due Date", format="YYYY-MM-DD", required=True),
+                            "allocation": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5, required=True, format="%d%%"),
+                            "net_pay": st.column_config.NumberColumn("Payment ($)", format="$%.2f", disabled=True)
+                        },
+                        key=f"edit_milestones_{st.session_state.reset_trigger}",
+                        hide_index=True,
+                        use_container_width=True
+                    )
+                    
+                    # Get current fees from session state
+                    current_fees = st.session_state.get(f"fees_al_{st.session_state.reset_trigger}", 0)
+                    
+                    # Recalculate net_pay if needed
+                    if not edited_df.empty and "allocation" in edited_df.columns:
+                        edited_df["net_pay"] = edited_df["allocation"].apply(lambda x: round(current_fees * (x/100), 2))
+                    
+                    # Store in session state
+                    st.session_state.editable_milestones = edited_df
+                    st.session_state.edit_milestone_df = edited_df
+                    milestone_df = edited_df
+                    
+                    # Calculate total for display
+                    if "net_pay" in edited_df.columns:
+                        total_payment = edited_df["net_pay"].sum()
+                        st.success(f"💰 **Total Milestone Payment: ${total_payment:,.2f}**")
+                else:
+                    # Display as read-only
                     st.dataframe(
                         milestone_df,
                         use_container_width=True,
@@ -2098,27 +2179,10 @@ def page_sow_generator():
                     if "net_pay" in milestone_df.columns:
                         total_payment = milestone_df["net_pay"].sum()
                         st.success(f"💰 **Total Milestone Payment: ${total_payment:,.2f}**")
-                else:
-                    # Show as read-only for other edit views
-                    st.dataframe(milestone_df, use_container_width=True, height=300)
-                    
-                    # Calculate total for display
-                    if "net_pay" in milestone_df.columns:
-                        total_payment = milestone_df["net_pay"].sum()
-                        st.success(f"✅ **Total Milestone Payment: ${total_payment:,.2f}**")
             else:
-                print("❌ No milestones found in additional data")
                 st.info("No milestone details available")
-                
-                # Try alternative approach - check if there's milestone data in form_data
-                if st.session_state.get('form_data') and 'milestone_df' in st.session_state.form_data:
-                    milestone_df = st.session_state.form_data.get('milestone_df')
-                    if milestone_df is not None and not milestone_df.empty:
-                        st.dataframe(milestone_df, use_container_width=True, height=300)
-                    else:
-                        st.info("No milestone details available")
         else:
-            # Create default milestone data
+            # Create default milestone data for new SOW
             default_data = [{
                 "Milestone #": "1",
                 "Services / Deliverables": "Project Kickoff and Requirements Gathering",
@@ -2133,8 +2197,8 @@ def page_sow_generator():
                 column_config={
                     "Milestone #": st.column_config.TextColumn("Milestone #", width="small"),
                     "Services / Deliverables": st.column_config.TextColumn("Services / Deliverables", width="large"),
-                    "Milestone Due Date": st.column_config.DateColumn("Due Date", format="YYYY-MM-DD"),
-                    "Payment Allocation (%)": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5)
+                    "Milestone Due Date": st.column_config.DateColumn("Due Date", format="YYYY-MM-DD", required=True),
+                    "Payment Allocation (%)": st.column_config.NumberColumn("Allocation %", min_value=0, max_value=100, step=5, required=True, format="%d%%")
                 },
                 key=f"milestone_table_{st.session_state.reset_trigger}",
                 hide_index=True
@@ -2172,7 +2236,6 @@ def page_sow_generator():
                 "Payment Allocation (%)": "allocation",
                 "Net Milestone Payment ($)": "net_pay"
             })
-    
     # ========== APPROVAL SECTION (ONLY IN EDIT MODE) ==========
     if st.session_state.edit_sow_mode and st.session_state.viewing_for_approval:
         st.markdown("</div>", unsafe_allow_html=True)  # Close approval section div
