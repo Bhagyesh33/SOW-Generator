@@ -2312,10 +2312,10 @@ def page_sow_generator():
         st.divider()
         
         # ADD THIS CHECKBOX BEFORE THE GENERATE BUTTON
-        col_checkbox, col_info = st.columns([1, 3])
+        col_checkbox, col_info = st.columns([3, 3])
         with col_checkbox:
             submit_with_upload = st.checkbox(
-                "✅ Generate SOW with Submit request (Auto-upload to SharePoint)", 
+                "✅ Generate SOW with Submit request", 
                 value=False,
                 key=f"submit_with_upload_{st.session_state.reset_trigger}",
                 help="Check this box to generate SOW and automatically upload to SharePoint"
@@ -2324,11 +2324,11 @@ def page_sow_generator():
             # Store checkbox state in session state
             st.session_state.submit_with_upload = submit_with_upload
 
-        with col_info:
-            if submit_with_upload:
-                st.info("🔄 When you click 'Submit SOW Request', the document will be automatically uploaded to SharePoint after generation.")
-            else:
-                st.info("📝 When you click 'Submit SOW Request', you'll need to manually upload to SharePoint using the upload button.")
+        # with col_info:
+        #     if submit_with_upload:
+        #         st.info("🔄 When you click 'Submit SOW Request', the document will be automatically uploaded to SharePoint after generation.")
+        #     else:
+        #         st.info("📝 When you click 'Submit SOW Request', you'll need to manually upload to SharePoint using the upload button.")
 
         col1, col2, col3 = st.columns([1, 2, 1])
 
@@ -3220,7 +3220,7 @@ def page_approval_dashboard():
         )
     
     # Load records button
-    load_clicked = st.button("📥 Load Records", type="primary", use_container_width=True, key="load_records_btn")
+    load_clicked = st.button("📥 View Submitted SOW Request", type="primary", use_container_width=True, key="load_records_btn")
     
     if load_clicked or st.session_state.get('sow_dataframe') is not None:
         with st.spinner("Loading SOW records from SharePoint..."):
@@ -3478,7 +3478,7 @@ def page_published_sows():
         )
     
     # Load records button
-    load_clicked = st.button("📥 Load Published SOWs", type="primary", use_container_width=True, key="load_published_btn")
+    load_clicked = st.button("📥 View Submitted SOWs", type="primary", use_container_width=True, key="load_published_btn")
     
     # Data loading logic
     if load_clicked:
