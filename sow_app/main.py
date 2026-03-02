@@ -3434,6 +3434,9 @@ def page_approval_dashboard():
 # ============================================================================
 # PAGE 3: PUBLISHED SOWS (UPDATED WITH BETTER ERROR HANDLING)
 # ============================================================================
+# ============================================================================
+# PAGE 3: PUBLISHED SOWS (UPDATED - REMOVED DEBUG, FILTERED TO APPROVED ONLY)
+# ============================================================================
 def page_published_sows():
     """Published SOWs page for all users to view approved SOWs"""
     
@@ -3551,285 +3554,270 @@ def page_published_sows():
         st.divider()
         st.subheader("📥 Download Documents")
         
-        # Create a selectbox with SOW numbers
-        sow_options = df['SOWNumber'].unique().tolist()
+        # FILTER TO ONLY SHOW APPROVED SOWS IN DROPDOWN
+        approved_df = df[df['Status'] == Config.STATUS_APPROVED].copy()
         
-        # Create display names for each SOW
-        sow_display_names = []
-        for sow in sow_options:
-            sow_name = df[df['SOWNumber'] == sow]['SOWName'].iloc[0]
-            project_type = df[df['SOWNumber'] == sow]['ProjectType'].iloc[0]
-            display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({project_type})"
-            sow_display_names.append(display_name)
-        
-        # Create a dictionary for mapping display names to actual values
-        sow_mapping = dict(zip(sow_display_names, sow_options))
-        
-        # Selectbox for SOW
-        selected_display = st.selectbox(
-            "Select SOW to download:",
-            options=sow_display_names,
-            key="published_sow_select",
-            index=0
-        )
-        
-        # Get actual SOW number from display name
-        selected_sow = sow_mapping[selected_display]
-        
-        # Find the selected row
-        selected_row = df[df['SOWNumber'] == selected_sow].iloc[0]
-        project_type = selected_row.get('ProjectType', '')
-        
-        # Debug expander to inspect data structure
-        with st.expander("🔍 Debug: View SOW Data Structure", expanded=False):
-            st.write("Selected SOW Data:")
-            st.json(selected_row.to_dict(), expanded=False)
+        if approved_df.empty:
+            st.info("📭 No approved SOWs available for download.")
+        else:
+            # Create a selectbox with approved SOW numbers only
+            sow_options = approved_df['SOWNumber'].unique().tolist()
             
-            # Parse and show additional data
-            try:
-                additional_data = json.loads(selected_row.get("AdditionalData", "{}"))
-                st.write("Additional Data Structure:")
-                st.json(additional_data, expanded=False)
-                
-                if project_type == "Fixed Fee":
-                    milestones = additional_data.get("project_specific", {}).get("milestones", [])
-                    st.write(f"Milestones found: {len(milestones)}")
-                    if milestones:
-                        st.write("First milestone:", milestones[0] if milestones else "None")
-            except:
-                st.write("Could not parse AdditionalData")
-        
-        # Create two columns for download buttons
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Download SOW Document button
-            download_sow_clicked = st.button(
-                "📄 Download SOW Document", 
-                use_container_width=True,
-                type="primary",
-                key="download_sow_btn"
+            # Create display names for each approved SOW
+            sow_display_names = []
+            for sow in sow_options:
+                sow_name = approved_df[approved_df['SOWNumber'] == sow]['SOWName'].iloc[0]
+                project_type = approved_df[approved_df['SOWNumber'] == sow]['ProjectType'].iloc[0]
+                display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({project_type})"
+                sow_display_names.append(display_name)
+            
+            # Create a dictionary for mapping display names to actual values
+            sow_mapping = dict(zip(sow_display_names, sow_options))
+            
+            # Selectbox for SOW
+            selected_display = st.selectbox(
+                "Select Approved SOW to download:",
+                options=sow_display_names,
+                key="published_sow_select",
+                index=0
             )
-        
-        with col2:
-            # Download Calculation Sheet button (only show for Fixed Fee and T&M)
-            if project_type in ["Fixed Fee", "T&M"]:
-                calculation_sheet_label = "📊 Download Milestone Sheet" if project_type == "Fixed Fee" else "📊 Download Resource Sheet"
-                download_calc_clicked = st.button(
-                    calculation_sheet_label, 
+            
+            # Get actual SOW number from display name
+            selected_sow = sow_mapping[selected_display]
+            
+            # Find the selected row from approved_df
+            selected_row = approved_df[approved_df['SOWNumber'] == selected_sow].iloc[0]
+            project_type = selected_row.get('ProjectType', '')
+            
+            # REMOVED DEBUG EXPANDER SECTION - COMMENTED OUT AS REQUESTED
+            # with st.expander("🔍 Debug: View SOW Data Structure", expanded=False):
+            #     st.write("Selected SOW Data:")
+            #     st.json(selected_row.to_dict(), expanded=False)
+            #     
+            #     # Parse and show additional data
+            #     try:
+            #         additional_data = json.loads selected_row.get("AdditionalData", "{}")
+            #         st.write("Additional Data Structure:")
+            #         st.json(additional_data, expanded=False)
+            #         
+            #         if project_type == "Fixed Fee":
+            #             milestones = additional_data.get("project_specific", {}).get("milestones", [])
+            #             st.write(f"Milestones found: {len(milestones)}")
+            #             if milestones:
+            #                 st.write("First milestone:", milestones[0] if milestones else "None")
+            #     except:
+            #         st.write("Could not parse AdditionalData")
+            
+            # Create two columns for download buttons
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Download SOW Document button
+                download_sow_clicked = st.button(
+                    "📄 Download SOW Document", 
                     use_container_width=True,
-                    type="secondary",
-                    key="download_calc_btn"
+                    type="primary",
+                    key="download_sow_btn"
                 )
-            else:
-                st.info("ℹ️ No calculation sheet available for Change Order")
-                download_calc_clicked = False
-        
-        # Handle SOW document download
-        if download_sow_clicked:
-            with st.spinner(f"Fetching SOW document for {selected_sow}..."):
-                # Try to get document from SharePoint using the flow
-                document_id = selected_row.get('ID')
-                
-                if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
-                    document_bytes = sharepoint_service.get_document(item_id=document_id)
-                    
-                    if document_bytes:
-                        # Create download button immediately
-                        filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
-                        
-                        st.success("✅ Document ready for download!")
-                        st.download_button(
-                            f"📥 Click to download: {selected_sow}",
-                            data=document_bytes,
-                            file_name=filename,
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            use_container_width=True,
-                            key=f"download_sow_{selected_sow}"
-                        )
-                    else:
-                        st.warning("⚠️ Document not found in SharePoint.")
-                        # Create a fallback document
-                        from docx import Document
-                        doc = Document()
-                        doc.add_heading(f"SOW: {selected_sow}", 0)
-                        doc.add_paragraph(f"SOW Name: {selected_row.get('SOWName', 'N/A')}")
-                        doc.add_paragraph(f"Client: {selected_row.get('Client', 'N/A')}")
-                        doc.add_paragraph(f"Project Type: {selected_row.get('ProjectType', 'N/A')}")
-                        doc.add_paragraph(f"Status: {selected_row.get('Status', 'N/A')}")
-                        doc.add_paragraph(f"Created By: {selected_row.get('CreatedBy', 'N/A')}")
-                        doc.add_paragraph(f"Created Date: {selected_row.get('GeneratedDate', 'N/A')}")
-                        
-                        buffer = BytesIO()
-                        doc.save(buffer)
-                        buffer.seek(0)
-                        
-                        st.download_button(
-                            "📝 Download Summary Document",
-                            data=buffer.getvalue(),
-                            file_name=f"{selected_sow}_Summary.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            use_container_width=True
-                        )
+            
+            with col2:
+                # Download Calculation Sheet button (only show for Fixed Fee and T&M)
+                if project_type in ["Fixed Fee", "T&M"]:
+                    calculation_sheet_label = "📊 Download Milestone Sheet" if project_type == "Fixed Fee" else "📊 Download Resource Sheet"
+                    download_calc_clicked = st.button(
+                        calculation_sheet_label, 
+                        use_container_width=True,
+                        type="secondary",
+                        key="download_calc_btn"
+                    )
                 else:
-                    st.error("❌ Document ID not found or get_document flow not configured.")
-        
-        # Handle calculation sheet download
-        if download_calc_clicked:
-            with st.spinner(f"Generating calculation sheet for {selected_sow}..."):
-                try:
-                    # Parse additional data to get milestone/resource information
-                    additional_data = {}
+                    st.info("ℹ️ No calculation sheet available for Change Order")
+                    download_calc_clicked = False
+            
+            # Handle SOW document download
+            if download_sow_clicked:
+                with st.spinner(f"Fetching SOW document for {selected_sow}..."):
+                    # Try to get document from SharePoint using the flow
+                    document_id = selected_row.get('ID')
+                    
+                    if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
+                        document_bytes = sharepoint_service.get_document(item_id=document_id)
+                        
+                        if document_bytes:
+                            # Create download button immediately
+                            filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
+                            
+                            st.success("✅ Document ready for download!")
+                            st.download_button(
+                                f"📥 Click to download: {selected_sow}",
+                                data=document_bytes,
+                                file_name=filename,
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True,
+                                key=f"download_sow_{selected_sow}"
+                            )
+                        else:
+                            st.warning("⚠️ Document not found in SharePoint.")
+                            # Create a fallback document
+                            from docx import Document
+                            doc = Document()
+                            doc.add_heading(f"SOW: {selected_sow}", 0)
+                            doc.add_paragraph(f"SOW Name: {selected_row.get('SOWName', 'N/A')}")
+                            doc.add_paragraph(f"Client: {selected_row.get('Client', 'N/A')}")
+                            doc.add_paragraph(f"Project Type: {selected_row.get('ProjectType', 'N/A')}")
+                            doc.add_paragraph(f"Status: {selected_row.get('Status', 'N/A')}")
+                            doc.add_paragraph(f"Created By: {selected_row.get('CreatedBy', 'N/A')}")
+                            doc.add_paragraph(f"Created Date: {selected_row.get('GeneratedDate', 'N/A')}")
+                            
+                            buffer = BytesIO()
+                            doc.save(buffer)
+                            buffer.seek(0)
+                            
+                            st.download_button(
+                                "📝 Download Summary Document",
+                                data=buffer.getvalue(),
+                                file_name=f"{selected_sow}_Summary.docx",
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True
+                            )
+                    else:
+                        st.error("❌ Document ID not found or get_document flow not configured.")
+            
+            # Handle calculation sheet download (rest of your existing code remains the same)
+            if download_calc_clicked:
+                with st.spinner(f"Generating calculation sheet for {selected_sow}..."):
                     try:
-                        additional_data = json.loads(selected_row.get("AdditionalData", "{}"))
-                        st.write("Debug - Additional Data loaded successfully")
-                    except Exception as e:
-                        st.error(f"Error parsing AdditionalData: {str(e)}")
+                        # Parse additional data to get milestone/resource information
                         additional_data = {}
-                    
-                    project_specific = additional_data.get("project_specific", {})
-                    
-                    # Debug output
-                    st.write(f"Debug - Project Type: {project_type}")
-                    st.write(f"Debug - Project Specific Keys: {list(project_specific.keys())}")
-                    
-                    # Create form data structure needed for Excel generation
-                    form_data = {
-                        "sow_num": selected_sow,
-                        "sow_name": selected_row.get("SOWName", ""),
-                        "Client_Name": selected_row.get("Client", ""),
-                        "option": project_type,
-                        "start_date": selected_row.get("StartDate", date.today()),
-                        "end_date": selected_row.get("EndDate", date.today())
-                    }
-                    
-                    excel_exporter = ExcelExporter()
-                    
-                    if project_type == "Fixed Fee":
-                        # Get milestone data
-                        milestones_list = project_specific.get("milestones", [])
-                        st.write(f"Debug - Milestones list length: {len(milestones_list)}")
+                        try:
+                            additional_data = json.loads(selected_row.get("AdditionalData", "{}"))
+                        except Exception as e:
+                            st.error(f"Error parsing AdditionalData: {str(e)}")
+                            additional_data = {}
                         
-                        if milestones_list and len(milestones_list) > 0:
-                            # Convert to DataFrame
-                            milestone_df = pd.DataFrame(milestones_list)
-                            st.write(f"Debug - Milestone DataFrame shape: {milestone_df.shape}")
-                            st.write(f"Debug - Milestone DataFrame columns: {list(milestone_df.columns)}")
-                            
-                            # Check if required columns exist
-                            required_cols = ['milestone_no', 'services', 'due_date', 'allocation', 'net_pay']
-                            missing_cols = [col for col in required_cols if col not in milestone_df.columns]
-                            
-                            if missing_cols:
-                                st.warning(f"⚠️ Missing columns in milestone data: {missing_cols}")
-                                st.write("Available columns:", list(milestone_df.columns))
-                                
-                                # Try to map columns if they have different names
-                                column_mapping = {
-                                    'milestone_no': ['milestone_no', 'Milestone #', 'Milestone No', 'Milestone Number'],
-                                    'services': ['services', 'Services', 'Services / Deliverables', 'Deliverables'],
-                                    'due_date': ['due_date', 'Due Date', 'Milestone Due Date', 'Date'],
-                                    'allocation': ['allocation', 'Allocation', 'Payment Allocation (%)', 'Allocation %'],
-                                    'net_pay': ['net_pay', 'Net Pay', 'Payment Amount ($)', 'Payment']
-                                }
-                                
-                                for req_col, possible_names in column_mapping.items():
-                                    if req_col not in milestone_df.columns:
-                                        for possible_name in possible_names:
-                                            if possible_name in milestone_df.columns:
-                                                milestone_df[req_col] = milestone_df[possible_name]
-                                                st.write(f"Mapped {possible_name} to {req_col}")
-                                                break
-                            
-                            # Add Fees_al if available
-                            form_data["Fees_al"] = project_specific.get("fees", 0)
-                            st.write(f"Debug - Fees_al: {form_data['Fees_al']}")
-                            
-                            # Generate Excel
-                            excel_path = excel_exporter.create_fixed_fee_milestone_excel(form_data, milestone_df)
-                            st.write(f"Debug - Excel path: {excel_path}")
-                            
-                            if excel_path and os.path.exists(excel_path):
-                                with open(excel_path, 'rb') as f:
-                                    excel_data = f.read()
-                                
-                                excel_filename = f"{selected_sow}_Milestone_Payments.xlsx"
-                                
-                                st.success("✅ Milestone sheet generated successfully!")
-                                st.download_button(
-                                    "📥 Download Milestone Sheet",
-                                    data=excel_data,
-                                    file_name=excel_filename,
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    use_container_width=True,
-                                    key=f"download_milestone_{selected_sow}"
-                                )
-                                
-                                # Clean up temp file
-                                try:
-                                    os.remove(excel_path)
-                                except:
-                                    pass
-                            else:
-                                st.error("❌ Failed to generate milestone sheet - Excel creation failed")
-                                st.write("Debug - Check if ExcelExporter.create_fixed_fee_milestone_excel returned None")
-                        else:
-                            st.warning("⚠️ No milestone data found for this SOW")
-                            st.write("Debug - Milestones list is empty or None")
-                    
-                    elif project_type == "T&M":
-                        # Get resource data
-                        resources_list = project_specific.get("resources", [])
-                        st.write(f"Debug - Resources list length: {len(resources_list)}")
+                        project_specific = additional_data.get("project_specific", {})
                         
-                        if resources_list and len(resources_list) > 0:
-                            # Convert to DataFrame
-                            resources_df = pd.DataFrame(resources_list)
-                            st.write(f"Debug - Resource DataFrame shape: {resources_df.shape}")
-                            st.write(f"Debug - Resource DataFrame columns: {list(resources_df.columns)}")
+                        # Create form data structure needed for Excel generation
+                        form_data = {
+                            "sow_num": selected_sow,
+                            "sow_name": selected_row.get("SOWName", ""),
+                            "Client_Name": selected_row.get("Client", ""),
+                            "option": project_type,
+                            "start_date": selected_row.get("StartDate", date.today()),
+                            "end_date": selected_row.get("EndDate", date.today())
+                        }
+                        
+                        excel_exporter = ExcelExporter()
+                        
+                        if project_type == "Fixed Fee":
+                            # Get milestone data
+                            milestones_list = project_specific.get("milestones", [])
                             
-                            # Check if required columns exist
-                            required_cols = ['Role', 'Location', 'Start Date', 'End Date', 'Allocation %', 'Hrs/Day', 'Rate/hr ($)', 'Estimated $']
-                            missing_cols = [col for col in required_cols if col not in resources_df.columns]
-                            
-                            if missing_cols:
-                                st.warning(f"⚠️ Missing columns in resource data: {missing_cols}")
-                                st.write("Available columns:", list(resources_df.columns))
-                            
-                            # Generate Excel
-                            excel_path = excel_exporter.create_tm_resource_excel(form_data, resources_df)
-                            st.write(f"Debug - Excel path: {excel_path}")
-                            
-                            if excel_path and os.path.exists(excel_path):
-                                with open(excel_path, 'rb') as f:
-                                    excel_data = f.read()
+                            if milestones_list and len(milestones_list) > 0:
+                                # Convert to DataFrame
+                                milestone_df = pd.DataFrame(milestones_list)
                                 
-                                excel_filename = f"{selected_sow}_Resource_Details.xlsx"
+                                # Check if required columns exist
+                                required_cols = ['milestone_no', 'services', 'due_date', 'allocation', 'net_pay']
+                                missing_cols = [col for col in required_cols if col not in milestone_df.columns]
                                 
-                                st.success("✅ Resource sheet generated successfully!")
-                                st.download_button(
-                                    "📥 Download Resource Sheet",
-                                    data=excel_data,
-                                    file_name=excel_filename,
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    use_container_width=True,
-                                    key=f"download_resource_{selected_sow}"
-                                )
+                                if missing_cols:
+                                    # Try to map columns if they have different names
+                                    column_mapping = {
+                                        'milestone_no': ['milestone_no', 'Milestone #', 'Milestone No', 'Milestone Number'],
+                                        'services': ['services', 'Services', 'Services / Deliverables', 'Deliverables'],
+                                        'due_date': ['due_date', 'Due Date', 'Milestone Due Date', 'Date'],
+                                        'allocation': ['allocation', 'Allocation', 'Payment Allocation (%)', 'Allocation %'],
+                                        'net_pay': ['net_pay', 'Net Pay', 'Payment Amount ($)', 'Payment']
+                                    }
+                                    
+                                    for req_col, possible_names in column_mapping.items():
+                                        if req_col not in milestone_df.columns:
+                                            for possible_name in possible_names:
+                                                if possible_name in milestone_df.columns:
+                                                    milestone_df[req_col] = milestone_df[possible_name]
+                                                    break
                                 
-                                # Clean up temp file
-                                try:
-                                    os.remove(excel_path)
-                                except:
-                                    pass
+                                # Add Fees_al if available
+                                form_data["Fees_al"] = project_specific.get("fees", 0)
+                                
+                                # Generate Excel
+                                excel_path = excel_exporter.create_fixed_fee_milestone_excel(form_data, milestone_df)
+                                
+                                if excel_path and os.path.exists(excel_path):
+                                    with open(excel_path, 'rb') as f:
+                                        excel_data = f.read()
+                                    
+                                    excel_filename = f"{selected_sow}_Milestone_Payments.xlsx"
+                                    
+                                    st.success("✅ Milestone sheet generated successfully!")
+                                    st.download_button(
+                                        "📥 Download Milestone Sheet",
+                                        data=excel_data,
+                                        file_name=excel_filename,
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        use_container_width=True,
+                                        key=f"download_milestone_{selected_sow}"
+                                    )
+                                    
+                                    # Clean up temp file
+                                    try:
+                                        os.remove(excel_path)
+                                    except:
+                                        pass
+                                else:
+                                    st.error("❌ Failed to generate milestone sheet")
                             else:
-                                st.error("❌ Failed to generate resource sheet - Excel creation failed")
-                        else:
-                            st.warning("⚠️ No resource data found for this SOW")
+                                st.warning("⚠️ No milestone data found for this SOW")
+                        
+                        elif project_type == "T&M":
+                            # Get resource data
+                            resources_list = project_specific.get("resources", [])
+                            
+                            if resources_list and len(resources_list) > 0:
+                                # Convert to DataFrame
+                                resources_df = pd.DataFrame(resources_list)
+                                
+                                # Check if required columns exist
+                                required_cols = ['Role', 'Location', 'Start Date', 'End Date', 'Allocation %', 'Hrs/Day', 'Rate/hr ($)', 'Estimated $']
+                                missing_cols = [col for col in required_cols if col not in resources_df.columns]
+                                
+                                if missing_cols:
+                                    st.warning(f"⚠️ Some resource data columns are missing: {missing_cols}")
+                                
+                                # Generate Excel
+                                excel_path = excel_exporter.create_tm_resource_excel(form_data, resources_df)
+                                
+                                if excel_path and os.path.exists(excel_path):
+                                    with open(excel_path, 'rb') as f:
+                                        excel_data = f.read()
+                                    
+                                    excel_filename = f"{selected_sow}_Resource_Details.xlsx"
+                                    
+                                    st.success("✅ Resource sheet generated successfully!")
+                                    st.download_button(
+                                        "📥 Download Resource Sheet",
+                                        data=excel_data,
+                                        file_name=excel_filename,
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        use_container_width=True,
+                                        key=f"download_resource_{selected_sow}"
+                                    )
+                                    
+                                    # Clean up temp file
+                                    try:
+                                        os.remove(excel_path)
+                                    except:
+                                        pass
+                                else:
+                                    st.error("❌ Failed to generate resource sheet")
+                            else:
+                                st.warning("⚠️ No resource data found for this SOW")
                     
-                except Exception as e:
-                    st.error(f"❌ Error generating calculation sheet: {str(e)}")
-                    import traceback
-                    st.code(traceback.format_exc())
+                    except Exception as e:
+                        st.error(f"❌ Error generating calculation sheet: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
         
         # ========== EXPORT DATA SECTION ==========
         st.divider()
@@ -3866,25 +3854,25 @@ def page_published_sows():
     
     elif not st.session_state.get('published_sows_df') and not load_clicked:
         # Initial state - show instructions
-        st.info("👆 Click 'Load Published SOWs' button to view all approved SOW documents")
+        st.info("👆 Click 'View Submitted SOWs' button to view all approved SOW documents")
         st.markdown("""
         ### How to use:
         1. Select filters from the dropdowns above
-        2. Click **Load Published SOWs** button
+        2. Click **View Submitted SOWs** button
         3. View all published SOW records in the interactive dataframe
-        4. Select a SOW number from the dropdown below the table
+        4. Select an approved SOW from the dropdown below the table
         5. Click **Download SOW Document** to download the main SOW document
         6. Click **Download Milestone Sheet** (for Fixed Fee) or **Download Resource Sheet** (for T&M) to download calculation sheets
         
         ### Features:
-        - **View all published SOW records** (approved status)
+        - **View all published SOW records** (approved status only)
         - **Filter** by client and project type
         - **Download individual SOW documents** by selecting from the dropdown
         - **Download calculation sheets** (milestone or resource details) for approved SOWs
         - **Export all published data** as CSV or Excel
         
         ### Note:
-        - Only approved SOWs are shown by default
+        - Only approved SOWs are shown by default and available for download
         - Calculation sheets are available for Fixed Fee and T&M projects
         - All users can access this page to view published SOWs
         """)
