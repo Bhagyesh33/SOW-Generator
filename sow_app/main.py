@@ -186,7 +186,8 @@ class Config:
         "update_status": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/9f22dfef2dd0403fb780810cc3c54b45/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=EDsK9ooYU6bXx7QZNQhwlKPHXAMPMHpPihDQea225Ys",
         "upload_document": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/c5172488c3244b6aa59242f0562dbb10/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=MV-4UfPewDgKk1QuVS5-z0_yUVwAKQz4d_aP9S3qB0c",
         "get_document": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/4e3f51632a5d4db79976427be5a54b6b/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=3Rgaj1vUDDydVP8x7jEbrCzBDDZ_r_N7aKaYYnisAok",
-        "get_sow_details": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/78733188f09f4ab19455d4f5ec755296/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=f4rvtDGpIxjXF7O1UGLK4KUtnsP7Sy_EuXswX6ZdU-o"
+        "get_sow_details": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/78733188f09f4ab19455d4f5ec755296/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=f4rvtDGpIxjXF7O1UGLK4KUtnsP7Sy_EuXswX6ZdU-o",
+        "check_user": "https://defaulted788079405e492bbc316ba6912792.09.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/209fef2d9c7f426196672d1c3b9413b7/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=T-HICVWF4oaRgyhsBmxdjltz0gy6y-SxtOHjLjjCwQI"
     }
     
     # SharePoint Document Libraries
@@ -205,11 +206,11 @@ class Config:
     }
     
     # Login credentials
-    LEGAL_USER_EMAIL = "legal@cloudlabsit.com"
+    # LEGAL_USER_EMAIL = "legal@cloudlabsit.com"
     # COMMON_PASSWORD = "CloudLabs@123"  # Common password for all users
     
     # Legal team emails (for approval dashboard access)
-    LEGAL_TEAM = ["legal@cloudlabsit.com", "admin@cloudlabsit.com"]
+    # LEGAL_TEAM = ["legal@cloudlabsit.com", "admin@cloudlabsit.com"]
     
     # Status values
     STATUS_DRAFT = "Draft"
@@ -219,12 +220,219 @@ class Config:
     
     # SharePoint List Name
     SHAREPOINT_LIST = "SOW_Records"
+    USERS_LIST = "Users"
 
 # ============================================================================
 # SHAREPOINT SERVICE VIA POWER AUTOMATE
 # ============================================================================
 class SharePointService:
     # Add this to the SharePointService class
+
+    def check_user(self, email):
+        """Check if user exists in SharePoint Users list and get their role"""
+        try:
+            # Create payload that matches your Power Automate flow
+            payload = {
+                "operation": "check_user",
+                "list_name": self.config.USERS_LIST,
+                "email": email
+            }
+            
+            print(f"🔍 DEBUG: Checking user {email} in SharePoint")
+            print(f"Payload: {json.dumps(payload, indent=2)}")
+            
+            result = self._call_power_automate("check_user", payload)
+            
+            print(f"🔍 DEBUG: Raw result from flow: {result}")
+            print(f"🔍 DEBUG: Result type: {type(result)}")
+            
+            # Handle the response based on your flow structure
+            if result:
+                # If result is a dictionary
+                if isinstance(result, dict):
+                    print(f"🔍 DEBUG: Result keys: {list(result.keys())}")
+                    
+                    # Case 1: SharePoint Get Items response (has 'value' array)
+                    if "value" in result:
+                        items = result.get("value", [])
+                        print(f"🔍 DEBUG: Found {len(items)} items in 'value' array")
+                        
+                        if len(items) > 0:
+                            user_data = items[0]
+                            print(f"🔍 DEBUG: User data keys: {list(user_data.keys())}")
+                            print(f"🔍 DEBUG: User data: {user_data}")
+                            
+                            # Try different possible field names for role
+                            role_value = None
+                            role_field_found = None
+                            
+                            for role_field in ['Role', 'role', 'Roles', 'roles']:
+                                if role_field in user_data:
+                                    role_field_found = role_field
+                                    role_value = user_data.get(role_field)
+                                    print(f"🔍 DEBUG: Found role in field '{role_field}': '{role_value}' (type: {type(role_value)})")
+                                    break
+                            
+                            if role_value is None:
+                                print(f"⚠️ DEBUG: No role field found. Available fields: {list(user_data.keys())}")
+                                role_value = "user"  # Default
+                            
+                            # CRITICAL FIX: Handle different role value formats
+                            # SharePoint often returns lookup fields as objects with Value property
+                            if isinstance(role_value, dict):
+                                print(f"🔍 DEBUG: Role value is a dictionary. Attempting to extract Value...")
+                                # Try to get Value from the dictionary (common in SharePoint lookups)
+                                if "Value" in role_value:
+                                    role_value = role_value.get("Value", "user")
+                                    print(f"🔍 DEBUG: Extracted Value: '{role_value}'")
+                                elif "value" in role_value:
+                                    role_value = role_value.get("value", "user")
+                                    print(f"🔍 DEBUG: Extracted value: '{role_value}'")
+                                elif "results" in role_value:
+                                    # For multi-value fields
+                                    results = role_value.get("results", [])
+                                    if results and len(results) > 0:
+                                        role_value = results[0]
+                                        print(f"🔍 DEBUG: Extracted from results: '{role_value}'")
+                                    else:
+                                        role_value = "user"
+                                else:
+                                    # If we can't find a Value property, use a default
+                                    print(f"⚠️ DEBUG: Dictionary format not recognized: {role_value}")
+                                    role_value = "user"
+                            
+                            # Ensure role_value is a string
+                            role_value = str(role_value) if role_value is not None else "user"
+                            
+                            # Now safely convert to lowercase
+                            role_normalized = role_value.lower()
+                            print(f"🔍 DEBUG: Normalized role: '{role_normalized}'")
+                            
+                            # Get email from response
+                            email_value = None
+                            for email_field in ['Email', 'email', 'EMail']:
+                                if email_field in user_data:
+                                    email_value = user_data.get(email_field)
+                                    if isinstance(email_value, dict):
+                                        email_value = email_value.get("Value", email_value.get("value", email))
+                                    break
+                            
+                            # Get name from response
+                            name_value = None
+                            for name_field in ['Title', 'title', 'Name', 'name']:
+                                if name_field in user_data:
+                                    name_value = user_data.get(name_field)
+                                    if isinstance(name_value, dict):
+                                        name_value = name_value.get("Value", name_value.get("value", ""))
+                                    break
+                            
+                            return {
+                                "success": True,
+                                "user_found": True,
+                                "user_data": {
+                                    "email": email_value or email,
+                                    "role": role_normalized,
+                                    "name": name_value or ""
+                                },
+                                "message": "User found"
+                            }
+                        else:
+                            return {
+                                "success": True,
+                                "user_found": False,
+                                "user_data": {},
+                                "message": "No user found with this email"
+                            }
+                    
+                    # Case 2: Custom response with user_found field
+                    elif "user_found" in result:
+                        user_found = result.get("user_found", False)
+                        if user_found:
+                            user_data = result.get("user_data", {})
+                            
+                            # Handle role safely
+                            role_value = user_data.get("role", user_data.get("Role", "user"))
+                            
+                            # Handle if role_value is a dictionary
+                            if isinstance(role_value, dict):
+                                role_value = role_value.get("Value", role_value.get("value", "user"))
+                            
+                            role_normalized = str(role_value).lower() if role_value else "user"
+                            
+                            return {
+                                "success": result.get("success", True),
+                                "user_found": True,
+                                "user_data": {
+                                    "email": user_data.get("email", user_data.get("Email", email)),
+                                    "role": role_normalized,
+                                    "name": user_data.get("name", user_data.get("Name", ""))
+                                },
+                                "message": result.get("message", "User found")
+                            }
+                        else:
+                            return {
+                                "success": result.get("success", True),
+                                "user_found": False,
+                                "user_data": {},
+                                "message": result.get("message", "User not found")
+                            }
+                    
+                    # Case 3: Direct item response (single item)
+                    elif "Role" in result or "role" in result:
+                        role_value = result.get("Role", result.get("role", "user"))
+                        
+                        # Handle if role_value is a dictionary
+                        if isinstance(role_value, dict):
+                            role_value = role_value.get("Value", role_value.get("value", "user"))
+                        
+                        role_normalized = str(role_value).lower() if role_value else "user"
+                        
+                        return {
+                            "success": True,
+                            "user_found": True,
+                            "user_data": {
+                                "email": result.get("Email", result.get("email", email)),
+                                "role": role_normalized,
+                                "name": result.get("Title", result.get("title", ""))
+                            },
+                            "message": "User found"
+                        }
+                    
+                    # Case 4: Empty or unrecognized response
+                    else:
+                        print(f"⚠️ DEBUG: Unrecognized response structure: {result}")
+                        return {
+                            "success": True,
+                            "user_found": False,
+                            "user_data": {},
+                            "message": "User not found or unrecognized response format"
+                        }
+                else:
+                    # If result is not a dict, return as success with the raw data
+                    return {
+                        "success": True,
+                        "user_found": False,
+                        "user_data": {},
+                        "message": f"Unexpected response format: {result}"
+                    }
+            
+            return {
+                "success": False,
+                "user_found": False,
+                "user_data": {},
+                "message": "Failed to check user - no response from Power Automate"
+            }
+            
+        except Exception as e:
+            print(f"❌ Error checking user: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "user_found": False,
+                "user_data": {},
+                "message": f"Error: {str(e)}"
+            }
 
     def update_sow_record(self, item_id, sow_data):
         """Update existing SOW record in SharePoint"""
@@ -1313,8 +1521,60 @@ def save_edited_sow():
 # ============================================================================
 # LOGIN SYSTEM
 # ============================================================================
+# ============================================================================
+# UPDATED LOGIN SYSTEM WITH SHAREPOINT VALIDATION
+# ============================================================================
+def validate_user_in_sharepoint(email):
+    """
+    Validate if user exists in SharePoint Users list and determine their role
+    Returns: (is_valid, role, error_message)
+    """
+    try:
+        sharepoint_service = st.session_state.sharepoint_service
+        
+        # Check if the flow URL is configured
+        if not Config.POWER_AUTOMATE_URLS.get("check_user"):
+            print("⚠️ Check user flow not configured, using fallback validation")
+            # Fallback to local validation if flow not configured
+            if email in ["legal@cloudlabsit.com", "admin@cloudlabsit.com"]:
+                return True, 'legal', ""
+            else:
+                # For demo purposes, allow any email as 'user'
+                return True, 'user', ""
+        
+        # Call SharePoint to validate user
+        result = sharepoint_service.check_user(email)
+        
+        print(f"🔍 DEBUG: Validation result from check_user: {result}")
+        
+        if result and result.get("success"):
+            if result.get("user_found"):
+                user_data = result.get("user_data", {})
+                role = user_data.get("role", "user")
+                
+                # role is already normalized to lowercase from check_user
+                print(f"✅ User validated: {email} with role: {role}")
+                
+                # Double-check that role is valid
+                if role not in ['legal', 'user']:
+                    print(f"⚠️ Unknown role '{role}', defaulting to 'user'")
+                    role = 'user'
+                
+                return True, role, ""
+            else:
+                return False, None, result.get("message", "User not found in authorized users list")
+        else:
+            error_msg = result.get("message", "Unknown error") if result else "No response from validation service"
+            return False, None, f"Validation failed: {error_msg}"
+            
+    except Exception as e:
+        print(f"❌ Error validating user: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False, None, f"Error validating user: {str(e)}"
+
 def login_page():
-    """Display login page - No password required"""
+    """Display login page with SharePoint validation"""
     st.markdown("""
     <div class="login-container">
         <div class="login-header">
@@ -1331,7 +1591,10 @@ def login_page():
         st.markdown("### Login")
     
     with col2:
-        email = st.text_input("Email", placeholder="Enter your email")
+        email = st.text_input("Email", placeholder="Enter your email", key="login_email")
+        
+        # Add a note about authorized users
+        st.caption("Only authorized users can access this application")
         
         login_btn = st.button("Login", type="primary", use_container_width=True)
         
@@ -1339,31 +1602,56 @@ def login_page():
             if not email:
                 st.error("Please enter your email")
             else:
-                # Set user session
-                st.session_state.is_authenticated = True
-                st.session_state.user_email = email
-                
-                # Determine user role
-                if email in Config.LEGAL_TEAM:
-                    st.session_state.user_role = 'legal'
-                else:
-                    st.session_state.user_role = 'user'
-                
-                st.success(f"Welcome, {email}!")
-                time.sleep(1)
-                st.rerun()
+                # Validate user in SharePoint
+                with st.spinner("Validating user credentials..."):
+                    is_valid, role, error_message = validate_user_in_sharepoint(email)
+                    
+                    if is_valid:
+                        # Set user session
+                        st.session_state.is_authenticated = True
+                        st.session_state.user_email = email
+                        st.session_state.user_role = role
+                        
+                        # Clear any previous state
+                        if 'sow_dataframe' in st.session_state:
+                            del st.session_state.sow_dataframe
+                        if 'published_sows_df' in st.session_state:
+                            del st.session_state.published_sows_df
+                        
+                        st.success(f"Welcome, {email}! (Role: {role})")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Access Denied")
+                        st.info(error_message)
+                        st.info("Please contact your administrator to get access to this application.")
     
     # Information
     st.markdown("---")
-    st.info("**Note:** Just enter your email to access the application. Legal team access is granted only to specific emails.")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.info("**Note:** Only authorized users can access this application.")
+    
+    with col2:
+        if not Config.POWER_AUTOMATE_URLS.get("check_user"):
+            st.warning("⚠️ Using local validation (Power Automate flow not configured)")
     
     st.markdown("</div>", unsafe_allow_html=True)
 
 def logout():
     """Logout user"""
+    # Clear all session state except sharepoint_service
+    keys_to_keep = ['sharepoint_service']
+    for key in list(st.session_state.keys()):
+        if key not in keys_to_keep:
+            del st.session_state[key]
+    
+    # Reset authentication
     st.session_state.is_authenticated = False
     st.session_state.user_email = ""
     st.session_state.user_role = 'guest'
+    
     st.rerun()
 
 # ============================================================================
@@ -1372,6 +1660,7 @@ def logout():
 def render_header():
     """Render application header with user info and logout button"""
     user_display = st.session_state.user_email.split('@')[0] if '@' in st.session_state.user_email else st.session_state.user_email
+    role_display = " (Legal)" if st.session_state.user_role == 'legal' else ""
     
     st.markdown(f"""
     <div class="custom-header">
@@ -1379,7 +1668,7 @@ def render_header():
         <p>Single Click Word SOW Generator | SharePoint Integrated</p>
         <div style="position: relative;">
             <button class="logout-btn" onclick="window.parent.document.querySelector('iframe').contentWindow.logout()">
-                👤 {user_display} | Logout
+                👤 {user_display}{role_display} | Logout
             </button>
         </div>
     </div>
@@ -3178,9 +3467,9 @@ def page_approval_dashboard():
     """Approval dashboard for legal team - Simple dataframe with download"""
     
     # Check authorization
-    if st.session_state.user_email not in Config.LEGAL_TEAM:
+    if st.session_state.user_role != 'legal':
         st.error("⛔ **Access Denied** - This page is for legal team members only.")
-        st.info(f"Your email: {st.session_state.user_email}")
+        st.info(f"Your role: {st.session_state.user_role}")
         return
     
     st.title("⚖️ Legal Approval Dashboard")
