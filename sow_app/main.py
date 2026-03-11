@@ -3579,91 +3579,98 @@ def page_approval_dashboard():
             )
             
             # ========== VIEW SOW FOR APPROVAL ==========
+            # ========== VIEW SOW FOR APPROVAL ==========
             st.subheader("👁️ View SOW for Approval")
-            
-            # Create a selectbox with SOW numbers
-            sow_options = df['SOWNumber'].unique().tolist()
-            
-            # Create display names for each SOW
-            sow_display_names = []
-            for sow in sow_options:
-                sow_name = df[df['SOWNumber'] == sow]['SOWName'].iloc[0]
-                status = df[df['SOWNumber'] == sow]['Status'].iloc[0]
-                display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({status})"
-                sow_display_names.append(display_name)
-            
-            # Create a dictionary for mapping display names to actual values
-            sow_mapping = dict(zip(sow_display_names, sow_options))
-            
-            # Selectbox for SOW
-            selected_display = st.selectbox(
-                "Select SOW to review:",
-                options=sow_display_names,
-                key="sow_select_view",
-                index=0
-            )
-            
-            # Get actual SOW number from display name
-            selected_sow = sow_mapping[selected_display]
-            
-            # Find the selected row
-            selected_row = df[df['SOWNumber'] == selected_sow].iloc[0]
-            
-            # View button
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                view_btn = st.button(
-                    "👁️ View SOW Details & Approve/Reject", 
-                    use_container_width=True,
-                    type="primary",
-                    key="view_sow_btn"
-                )
-            
-            with col2:
-                download_btn = st.button(
-                    "📥 Download Document", 
-                    use_container_width=True,
-                    key="download_doc_btn"
-                )
-            
-            if view_btn:
-                # Set edit mode and load SOW data
-                st.session_state.edit_sow_mode = True
-                st.session_state.viewing_for_approval = True
-                st.session_state.edit_sow_data = selected_row.to_dict()
-                st.session_state.edit_sow_id = selected_row.get('ID')
-                st.session_state.edit_mode_enabled = True 
+
+            # FILTER TO ONLY SHOW PENDING REVIEW SOWS IN DROPDOWN
+            pending_df = df[df['Status'] == Config.STATUS_PENDING].copy()
+
+            if pending_df.empty:
+                st.info("📭 No pending SOWs available for review.")
+            else:
+                # Create a selectbox with pending SOW numbers only
+                sow_options = pending_df['SOWNumber'].unique().tolist()
                 
-                # Load the additional data (resources/milestones) for display
-                load_sow_data_for_edit_mode(selected_row.to_dict())
+                # Create display names for each pending SOW
+                sow_display_names = []
+                for sow in sow_options:
+                    sow_name = pending_df[pending_df['SOWNumber'] == sow]['SOWName'].iloc[0]
+                    project_type = pending_df[pending_df['SOWNumber'] == sow]['ProjectType'].iloc[0]
+                    display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({project_type})"
+                    sow_display_names.append(display_name)
                 
-                st.rerun()
-            
-            if download_btn:
-                with st.spinner(f"Downloading document for {selected_sow}..."):
-                    # Try to get document from SharePoint
-                    document_id = selected_row.get('ID')
+                # Create a dictionary for mapping display names to actual values
+                sow_mapping = dict(zip(sow_display_names, sow_options))
+                
+                # Selectbox for SOW
+                selected_display = st.selectbox(
+                    "Select SOW to review:",
+                    options=sow_display_names,
+                    key="sow_select_view",
+                    index=0
+                )
+                
+                # Get actual SOW number from display name
+                selected_sow = sow_mapping[selected_display]
+                
+                # Find the selected row from pending_df
+                selected_row = pending_df[pending_df['SOWNumber'] == selected_sow].iloc[0]
+                
+                # View button
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    view_btn = st.button(
+                        "👁️ View SOW Details & Approve/Reject", 
+                        use_container_width=True,
+                        type="primary",
+                        key="view_sow_btn"
+                    )
+                
+                with col2:
+                    download_btn = st.button(
+                        "📥 Download Document", 
+                        use_container_width=True,
+                        key="download_doc_btn"
+                    )
+                
+                if view_btn:
+                    # Set edit mode and load SOW data
+                    st.session_state.edit_sow_mode = True
+                    st.session_state.viewing_for_approval = True
+                    st.session_state.edit_sow_data = selected_row.to_dict()
+                    st.session_state.edit_sow_id = selected_row.get('ID')
+                    st.session_state.edit_mode_enabled = True
                     
-                    if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
-                        document_bytes = sharepoint_service.get_document(item_id=document_id)
+                    # Load the additional data (resources/milestones) for display
+                    load_sow_data_for_edit_mode(selected_row.to_dict())
+                    
+                    st.rerun()
+                
+                if download_btn:
+                    with st.spinner(f"Downloading document for {selected_sow}..."):
+                        # Try to get document from SharePoint
+                        document_id = selected_row.get('ID')
                         
-                        if document_bytes:
-                            filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
+                        if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
+                            document_bytes = sharepoint_service.get_document(item_id=document_id)
                             
-                            st.success("✅ Document ready for download!")
-                            st.download_button(
-                                f"📥 Click to download: {selected_sow}",
-                                data=document_bytes,
-                                file_name=filename,
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                use_container_width=True,
-                                key=f"download_{selected_sow}"
-                            )
+                            if document_bytes:
+                                filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
+                                
+                                st.success("✅ Document ready for download!")
+                                st.download_button(
+                                    f"📥 Click to download: {selected_sow}",
+                                    data=document_bytes,
+                                    file_name=filename,
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    use_container_width=True,
+                                    key=f"download_{selected_sow}"
+                                )
+                            else:
+                                st.warning("⚠️ Document not found in SharePoint.")
                         else:
-                            st.warning("⚠️ Document not found in SharePoint.")
-                    else:
-                        st.error("❌ Document ID not found or get_document flow not configured.")
+                            st.error("❌ Document ID not found or get_document flow not configured.")
             
             # ========== EXPORT DATA SECTION ==========
             st.divider()
