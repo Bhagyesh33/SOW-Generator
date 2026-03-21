@@ -3464,7 +3464,7 @@ def upload_excel_to_sharepoint_folder(sharepoint_service, file_data, file_name, 
 # PAGE 2: APPROVAL DASHBOARD
 # ============================================================================
 def page_approval_dashboard():
-    """Approval dashboard for legal team - Simple dataframe with download"""
+    """Approval dashboard for legal team - Fixed filtering"""
     
     # Check authorization
     if st.session_state.user_role != 'legal':
@@ -3491,235 +3491,296 @@ def page_approval_dashboard():
         status_filter = st.selectbox(
             "Status",
             ["All", Config.STATUS_PENDING, Config.STATUS_APPROVED, Config.STATUS_REJECTED, Config.STATUS_DRAFT],
-            key="approval_status_filter"
+            key="approval_status_filter",
+            index=0  # Default to "All"
         )
     
     with col2:
         client_filter = st.selectbox(
             "Client",
             ["All", "BSC", "Abiomed", "Cognex", "Itaros", "Other"],
-            key="approval_client_filter"
+            key="approval_client_filter",
+            index=0  # Default to "All"
         )
     
     with col3:
         project_filter = st.selectbox(
             "Project Type",
             ["All", "Fixed Fee", "T&M", "Change Order"],
-            key="approval_project_filter"
+            key="approval_project_filter",
+            index=0  # Default to "All"
         )
     
     # Load records button
-    load_clicked = st.button("📥 View Submitted SOW Request", type="primary", use_container_width=True, key="load_records_btn")
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+    with col_btn2:
+        load_clicked = st.button("📥 View Submitted SOW Request", type="primary", use_container_width=True, key="load_records_btn")
     
-    if load_clicked or st.session_state.get('sow_dataframe') is not None:
+    # Data loading logic - always fetch all data when button is clicked
+    if load_clicked:
         with st.spinner("Loading SOW records from SharePoint..."):
-            # Only fetch new data if button was clicked or no data exists
-            if load_clicked or st.session_state.get('sow_dataframe') is None:
-                # Build filters
-                filters = {}
-                if status_filter != "All":
-                    filters["status"] = status_filter
-                if client_filter != "All":
-                    filters["client"] = client_filter
-                if project_filter != "All":
-                    filters["project_type"] = project_filter
-                
-                result = sharepoint_service.get_sow_records(**filters)
-                
-                if not result["success"]:
-                    st.error(f"❌ Failed to load records: {result.get('message', 'Unknown error')}")
-                    return
-                
-                df = result["data"]
-                
-                if df.empty:
-                    st.info("📭 No SOW records found with the selected filters.")
-                    st.session_state.sow_dataframe = None
-                    return
-                
-                # Store dataframe in session state
-                st.session_state.sow_dataframe = df
-            else:
-                # Use existing dataframe
-                df = st.session_state.sow_dataframe
+            # Fetch ALL records without filters
+            result = sharepoint_service.get_sow_records()
             
-            if df.empty:
-                st.info("📭 No SOW records found with the selected filters.")
+            if not result["success"]:
+                st.error(f"❌ Failed to load records: {result.get('message', 'Unknown error')}")
                 return
             
-            # ========== DISPLAY DATAFRAME WITH VIEW BUTTONS ==========
-            st.subheader(f"📋 SOW Records ({len(df)} records)")
+            df = result["data"]
             
-            # Create a copy for display
-            display_df = df.copy()
+            if df.empty:
+                st.info("📭 No SOW records found.")
+                st.session_state.sow_dataframe = None
+                return
             
-            # Configure column order
-            column_order = ['SOWNumber', 'SOWName', 'Client', 'ProjectType', 
-                          'Status', 'StartDate', 'EndDate', 'CreatedBy', 'GeneratedDate']
+            # Store ALL data in session state
+            st.session_state.sow_dataframe = df
+            st.success(f"✅ Loaded {len(df)} total SOW records")
+    
+    # Display data if loaded
+    if st.session_state.get('sow_dataframe') is not None:
+        # Get the original dataframe
+        original_df = st.session_state.sow_dataframe
+        
+        if original_df.empty:
+            st.info("📭 No SOW records found.")
+            return
+        
+        # ========== APPLY FILTERS CLIENT-SIDE ==========
+        filtered_df = original_df.copy()
+        
+        # Apply status filter
+        if status_filter != "All":
+            filtered_df = filtered_df[filtered_df['Status'] == status_filter]
+        
+        # Apply client filter
+        if client_filter != "All":
+            filtered_df = filtered_df[filtered_df['Client'] == client_filter]
+        
+        # Apply project type filter
+        if project_filter != "All":
+            filtered_df = filtered_df[filtered_df['ProjectType'] == project_filter]
+        
+        # Show filter summary
+        if len(filtered_df) < len(original_df):
+            st.info(f"📊 Showing {len(filtered_df)} of {len(original_df)} records (filtered: Status={status_filter if status_filter != 'All' else 'All'}, Client={client_filter if client_filter != 'All' else 'All'}, Project={project_filter if project_filter != 'All' else 'All'})")
+        else:
+            st.info(f"📊 Showing all {len(original_df)} records")
+        
+        if filtered_df.empty:
+            st.warning("⚠️ No records match the selected filters. Try changing your filter criteria.")
+            return
+        
+        # ========== DISPLAY DATAFRAME WITH VIEW BUTTONS ==========
+        st.subheader(f"📋 SOW Records ({len(filtered_df)} records)")
+        
+        # Create a copy for display
+        display_df = filtered_df.copy()
+        
+        # Configure column order
+        column_order = ['SOWNumber', 'SOWName', 'Client', 'ProjectType', 
+                      'Status', 'StartDate', 'EndDate', 'CreatedBy', 'GeneratedDate', 'TotalValue']
+        
+        # Filter to only existing columns
+        existing_columns = [col for col in column_order if col in display_df.columns]
+        
+        # Add TotalValue to display if it exists
+        display_columns = existing_columns
+        if 'TotalValue' not in display_df.columns:
+            display_columns = [col for col in existing_columns if col != 'TotalValue']
+        
+        # Display dataframe
+        st.dataframe(
+            display_df[display_columns],
+            use_container_width=True,
+            height=400,
+            column_config={
+                "SOWNumber": st.column_config.TextColumn("SOW #", width="small"),
+                "SOWName": st.column_config.TextColumn("SOW Name", width="medium"),
+                "Client": st.column_config.TextColumn("Client", width="small"),
+                "ProjectType": st.column_config.TextColumn("Type", width="small"),
+                "Status": st.column_config.TextColumn("Status", width="small"),
+                "StartDate": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD", width="small"),
+                "EndDate": st.column_config.DateColumn("End Date", format="YYYY-MM-DD", width="small"),
+                "CreatedBy": st.column_config.TextColumn("Created By", width="medium"),
+                "GeneratedDate": st.column_config.DateColumn("Created Date", format="YYYY-MM-DD", width="small"),
+                "TotalValue": st.column_config.NumberColumn("Total Value", format="$%.2f", width="small"),
+            }
+        )
+        
+        # ========== VIEW SOW FOR APPROVAL ==========
+        st.subheader("👁️ View SOW for Approval")
+
+        # FILTER TO ONLY SHOW PENDING REVIEW SOWS IN DROPDOWN
+        pending_df = filtered_df[filtered_df['Status'] == Config.STATUS_PENDING].copy()
+
+        if pending_df.empty:
+            st.info("📭 No pending SOWs available for review with the current filters.")
+        else:
+            # Create a selectbox with pending SOW numbers only
+            sow_options = pending_df['SOWNumber'].unique().tolist()
             
-            # Filter to only existing columns
-            existing_columns = [col for col in column_order if col in display_df.columns]
+            # Create display names for each pending SOW
+            sow_display_names = []
+            for sow in sow_options:
+                sow_name = pending_df[pending_df['SOWNumber'] == sow]['SOWName'].iloc[0]
+                project_type = pending_df[pending_df['SOWNumber'] == sow]['ProjectType'].iloc[0]
+                display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({project_type})"
+                sow_display_names.append(display_name)
             
-            # Display dataframe
-            st.dataframe(
-                display_df[existing_columns],
-                use_container_width=True,
-                height=400,
-                column_config={
-                    "SOWNumber": st.column_config.TextColumn("SOW #", width="small"),
-                    "SOWName": st.column_config.TextColumn("SOW Name", width="medium"),
-                    "Client": st.column_config.TextColumn("Client", width="small"),
-                    "ProjectType": st.column_config.TextColumn("Type", width="small"),
-                    "Status": st.column_config.TextColumn("Status", width="small"),
-                    "StartDate": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD", width="small"),
-                    "EndDate": st.column_config.DateColumn("End Date", format="YYYY-MM-DD", width="small"),
-                    "CreatedBy": st.column_config.TextColumn("Created By", width="medium"),
-                    "GeneratedDate": st.column_config.DateColumn("Created Date", format="YYYY-MM-DD", width="small"),
-                }
+            # Create a dictionary for mapping display names to actual values
+            sow_mapping = dict(zip(sow_display_names, sow_options))
+            
+            # Selectbox for SOW
+            selected_display = st.selectbox(
+                "Select SOW to review:",
+                options=sow_display_names,
+                key="sow_select_view",
+                index=0
             )
             
-            # ========== VIEW SOW FOR APPROVAL ==========
-            # ========== VIEW SOW FOR APPROVAL ==========
-            st.subheader("👁️ View SOW for Approval")
-
-            # FILTER TO ONLY SHOW PENDING REVIEW SOWS IN DROPDOWN
-            pending_df = df[df['Status'] == Config.STATUS_PENDING].copy()
-
-            if pending_df.empty:
-                st.info("📭 No pending SOWs available for review.")
-            else:
-                # Create a selectbox with pending SOW numbers only
-                sow_options = pending_df['SOWNumber'].unique().tolist()
-                
-                # Create display names for each pending SOW
-                sow_display_names = []
-                for sow in sow_options:
-                    sow_name = pending_df[pending_df['SOWNumber'] == sow]['SOWName'].iloc[0]
-                    project_type = pending_df[pending_df['SOWNumber'] == sow]['ProjectType'].iloc[0]
-                    display_name = f"{sow} - {sow_name[:30]}{'...' if len(sow_name) > 30 else ''} ({project_type})"
-                    sow_display_names.append(display_name)
-                
-                # Create a dictionary for mapping display names to actual values
-                sow_mapping = dict(zip(sow_display_names, sow_options))
-                
-                # Selectbox for SOW
-                selected_display = st.selectbox(
-                    "Select SOW to review:",
-                    options=sow_display_names,
-                    key="sow_select_view",
-                    index=0
-                )
-                
-                # Get actual SOW number from display name
-                selected_sow = sow_mapping[selected_display]
-                
-                # Find the selected row from pending_df
-                selected_row = pending_df[pending_df['SOWNumber'] == selected_sow].iloc[0]
-                
-                # View button
-                col1, col2 = st.columns([3, 1])
-                
-                with col1:
-                    view_btn = st.button(
-                        "👁️ View SOW Details & Approve/Reject", 
-                        use_container_width=True,
-                        type="primary",
-                        key="view_sow_btn"
-                    )
-                
-                with col2:
-                    download_btn = st.button(
-                        "📥 Download Document", 
-                        use_container_width=True,
-                        key="download_doc_btn"
-                    )
-                
-                if view_btn:
-                    # Set edit mode and load SOW data
-                    st.session_state.edit_sow_mode = True
-                    st.session_state.viewing_for_approval = True
-                    st.session_state.edit_sow_data = selected_row.to_dict()
-                    st.session_state.edit_sow_id = selected_row.get('ID')
-                    st.session_state.edit_mode_enabled = True
-                    
-                    # Load the additional data (resources/milestones) for display
-                    load_sow_data_for_edit_mode(selected_row.to_dict())
-                    
-                    st.rerun()
-                
-                if download_btn:
-                    with st.spinner(f"Downloading document for {selected_sow}..."):
-                        # Try to get document from SharePoint
-                        document_id = selected_row.get('ID')
-                        
-                        if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
-                            document_bytes = sharepoint_service.get_document(item_id=document_id)
-                            
-                            if document_bytes:
-                                filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
-                                
-                                st.success("✅ Document ready for download!")
-                                st.download_button(
-                                    f"📥 Click to download: {selected_sow}",
-                                    data=document_bytes,
-                                    file_name=filename,
-                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                    use_container_width=True,
-                                    key=f"download_{selected_sow}"
-                                )
-                            else:
-                                st.warning("⚠️ Document not found in SharePoint.")
-                        else:
-                            st.error("❌ Document ID not found or get_document flow not configured.")
+            # Get actual SOW number from display name
+            selected_sow = sow_mapping[selected_display]
             
-            # ========== EXPORT DATA SECTION ==========
-            st.divider()
-            st.subheader("📤 Export All Data")
+            # Find the selected row from pending_df
+            selected_row = pending_df[pending_df['SOWNumber'] == selected_sow].iloc[0]
             
-            col1, col2 = st.columns(2)
+            # View button
+            col1, col2 = st.columns([3, 1])
             
             with col1:
-                # Export to CSV
-                csv = df.to_csv(index=False)
-                st.download_button(
-                    "📥 Download as CSV",
-                    data=csv,
-                    file_name=f"sow_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
+                view_btn = st.button(
+                    "👁️ View SOW Details & Approve/Reject", 
                     use_container_width=True,
-                    key="export_csv_btn"
+                    type="primary",
+                    key="view_sow_btn"
                 )
             
             with col2:
-                # Export to Excel
-                excel_buffer = BytesIO()
-                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    df.to_excel(writer, index=False, sheet_name='SOW Records')
+                download_btn = st.button(
+                    "📥 Download Document", 
+                    use_container_width=True,
+                    key="download_doc_btn"
+                )
+            
+            if view_btn:
+                # Set edit mode and load SOW data
+                st.session_state.edit_sow_mode = True
+                st.session_state.viewing_for_approval = True
+                st.session_state.edit_sow_data = selected_row.to_dict()
+                st.session_state.edit_sow_id = selected_row.get('ID')
+                st.session_state.edit_mode_enabled = True
+                
+                # Load the additional data (resources/milestones) for display
+                load_sow_data_for_edit_mode(selected_row.to_dict())
+                
+                st.rerun()
+            
+            if download_btn:
+                with st.spinner(f"Downloading document for {selected_sow}..."):
+                    # Try to get document from SharePoint
+                    document_id = selected_row.get('ID')
+                    
+                    if document_id and Config.POWER_AUTOMATE_URLS["get_document"]:
+                        document_bytes = sharepoint_service.get_document(item_id=document_id)
+                        
+                        if document_bytes:
+                            filename = f"{selected_sow}_{selected_row.get('SOWName', 'SOW').replace(' ', '_')}.docx"
+                            
+                            st.success("✅ Document ready for download!")
+                            st.download_button(
+                                f"📥 Click to download: {selected_sow}",
+                                data=document_bytes,
+                                file_name=filename,
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True,
+                                key=f"download_{selected_sow}"
+                            )
+                        else:
+                            st.warning("⚠️ Document not found in SharePoint.")
+                    else:
+                        st.error("❌ Document ID not found or get_document flow not configured.")
+        
+        # ========== EXPORT DATA SECTION ==========
+        st.divider()
+        st.subheader("📤 Export Data")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Export filtered data to CSV
+            csv = filtered_df.to_csv(index=False)
+            st.download_button(
+                "📥 Download Filtered Data as CSV",
+                data=csv,
+                file_name=f"sow_records_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="export_csv_btn"
+            )
+        
+        with col2:
+            # Export filtered data to Excel
+            excel_buffer = BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                filtered_df.to_excel(writer, index=False, sheet_name='SOW Records')
+            
+            st.download_button(
+                "📊 Download Filtered Data as Excel",
+                data=excel_buffer.getvalue(),
+                file_name=f"sow_records_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="export_excel_btn"
+            )
+        
+        # Add option to export all data
+        with st.expander("📁 Export All Data (Unfiltered)", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export all data to CSV
+                all_csv = original_df.to_csv(index=False)
+                st.download_button(
+                    "📥 Download ALL Data as CSV",
+                    data=all_csv,
+                    file_name=f"sow_records_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="export_all_csv_btn"
+                )
+            
+            with col2:
+                # Export all data to Excel
+                all_excel_buffer = BytesIO()
+                with pd.ExcelWriter(all_excel_buffer, engine='openpyxl') as writer:
+                    original_df.to_excel(writer, index=False, sheet_name='All SOW Records')
                 
                 st.download_button(
-                    "📊 Download as Excel",
-                    data=excel_buffer.getvalue(),
-                    file_name=f"sow_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    "📊 Download ALL Data as Excel",
+                    data=all_excel_buffer.getvalue(),
+                    file_name=f"sow_records_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
-                    key="export_excel_btn"
+                    key="export_all_excel_btn"
                 )
     
     else:
         # Initial state - show instructions
-        st.info("👆 Click 'Load Records' button to load SOW data from SharePoint")
+        st.info("👆 Click 'View Submitted SOW Request' button to load SOW data from SharePoint")
         st.markdown("""
         ### How to use:
-        1. Select filters from the dropdowns above
-        2. Click **Load Records** button
+        1. Click the **View Submitted SOW Request** button to load all SOW data from SharePoint
+        2. Use the filter dropdowns above to narrow down the results
         3. View all SOW records in the interactive table
-        4. Select a SOW from the dropdown below the table
+        4. Select a pending SOW from the dropdown below the table
         5. Click **View SOW Details & Approve/Reject** to review and make a decision
         
         ### Features:
-        - **View all SOW records** in a clean table
-        - **Filter** by status, client, and project type
-        - **View SOW details** in read-only mode
+        - **Client-side filtering** - All filters are applied locally after data is loaded
+        - **Export filtered data** - Download only the records that match your filters
+        - **Export all data** - Option to download the complete dataset
+        - **View SOW details** in read-only mode with approval buttons
         - **Approve or Reject** SOW submissions with comments
         - **Download documents** for review
         """)
@@ -3734,7 +3795,7 @@ def page_approval_dashboard():
 # PAGE 3: PUBLISHED SOWS (UPDATED - REMOVED DEBUG, FILTERED TO APPROVED ONLY)
 # ============================================================================
 def page_published_sows():
-    """Published SOWs page for all users to view approved SOWs"""
+    """Published SOWs page for all users to view approved SOWs - Fixed with client-side filtering"""
     
     st.title("📚 Published SOWs")
     st.markdown("View all approved SOW documents.")
@@ -3751,45 +3812,44 @@ def page_published_sows():
     if 'published_sows_df' not in st.session_state:
         st.session_state.published_sows_df = None
     
-    # ========== SIMPLE FILTERS ==========
+    # ========== FILTERS ==========
     st.subheader("🔍 Filter Options")
     col1, col2, col3 = st.columns(3)
     
     with col1:
         status_filter = st.selectbox(
             "Status",
-            [Config.STATUS_APPROVED, "All", Config.STATUS_PENDING, Config.STATUS_REJECTED],
-            key="published_status_filter"
+            ["All", Config.STATUS_APPROVED, Config.STATUS_PENDING, Config.STATUS_REJECTED],
+            key="published_status_filter",
+            index=0  # Default to "All"
         )
     
     with col2:
         client_filter = st.selectbox(
             "Client",
             ["All", "BSC", "Abiomed", "Cognex", "Itaros", "Other"],
-            key="published_client_filter"
+            key="published_client_filter",
+            index=0  # Default to "All"
         )
     
     with col3:
         project_filter = st.selectbox(
             "Project Type",
             ["All", "Fixed Fee", "T&M", "Change Order"],
-            key="published_project_filter"
+            key="published_project_filter",
+            index=0  # Default to "All"
         )
     
     # Load records button
-    load_clicked = st.button("📥 View Submitted SOWs", type="primary", use_container_width=True, key="load_published_btn")
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+    with col_btn2:
+        load_clicked = st.button("📥 View Submitted SOWs", type="primary", use_container_width=True, key="load_published_btn")
     
-    # Data loading logic
+    # Data loading logic - fetch ALL data when button is clicked
     if load_clicked:
-        with st.spinner("Loading published SOWs from SharePoint..."):
-            # Build filters - Always show approved by default
-            filters = {"status": status_filter if status_filter != "All" else Config.STATUS_APPROVED}
-            if client_filter != "All":
-                filters["client"] = client_filter
-            if project_filter != "All":
-                filters["project_type"] = project_filter
-            
-            result = sharepoint_service.get_sow_records(**filters)
+        with st.spinner("Loading SOW records from SharePoint..."):
+            # Fetch ALL records without filters
+            result = sharepoint_service.get_sow_records()
             
             if not result["success"]:
                 st.error(f"❌ Failed to load records: {result.get('message', 'Unknown error')}")
@@ -3799,26 +3859,53 @@ def page_published_sows():
             df = result["data"]
             
             if df.empty:
-                st.info("📭 No published SOWs found with the selected filters.")
+                st.info("📭 No SOW records found.")
                 st.session_state.published_sows_df = None
                 return
             
-            # Store dataframe in session state
+            # Store ALL data in session state
             st.session_state.published_sows_df = df
-            
+            st.success(f"✅ Loaded {len(df)} total SOW records")
+    
     # Display data if loaded
     if st.session_state.published_sows_df is not None:
-        df = st.session_state.published_sows_df
+        # Get the original dataframe
+        original_df = st.session_state.published_sows_df
         
-        if df.empty:
-            st.info("📭 No published SOWs found.")
+        if original_df.empty:
+            st.info("📭 No SOW records found.")
+            return
+        
+        # ========== APPLY FILTERS CLIENT-SIDE ==========
+        filtered_df = original_df.copy()
+        
+        # Apply status filter
+        if status_filter != "All":
+            filtered_df = filtered_df[filtered_df['Status'] == status_filter]
+        
+        # Apply client filter
+        if client_filter != "All":
+            filtered_df = filtered_df[filtered_df['Client'] == client_filter]
+        
+        # Apply project type filter
+        if project_filter != "All":
+            filtered_df = filtered_df[filtered_df['ProjectType'] == project_filter]
+        
+        # Show filter summary
+        if len(filtered_df) < len(original_df):
+            st.info(f"📊 Showing {len(filtered_df)} of {len(original_df)} records (filtered: Status={status_filter if status_filter != 'All' else 'All'}, Client={client_filter if client_filter != 'All' else 'All'}, Project={project_filter if project_filter != 'All' else 'All'})")
+        else:
+            st.info(f"📊 Showing all {len(original_df)} records")
+        
+        if filtered_df.empty:
+            st.warning("⚠️ No records match the selected filters. Try changing your filter criteria.")
             return
         
         # ========== DISPLAY DATAFRAME ==========
-        st.subheader(f"📋 Published SOWs ({len(df)} records)")
+        st.subheader(f"📋 Published SOWs ({len(filtered_df)} records)")
         
         # Create a copy for display
-        display_df = df.copy()
+        display_df = filtered_df.copy()
         
         # Configure column order
         column_order = ['SOWNumber', 'SOWName', 'Client', 'ProjectType', 
@@ -3833,16 +3920,16 @@ def page_published_sows():
             use_container_width=True,
             height=400,
             column_config={
-                "SOWNumber": st.column_config.TextColumn("SOW #"),
-                "SOWName": st.column_config.TextColumn("SOW Name"),
-                "Client": st.column_config.TextColumn("Client"),
-                "ProjectType": st.column_config.TextColumn("Type"),
-                "Status": st.column_config.TextColumn("Status"),
-                "StartDate": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD"),
-                "EndDate": st.column_config.DateColumn("End Date", format="YYYY-MM-DD"),
-                "CreatedBy": st.column_config.TextColumn("Created By"),
-                "GeneratedDate": st.column_config.DateColumn("Created Date", format="YYYY-MM-DD"),
-                "TotalValue": st.column_config.NumberColumn("Total Value", format="$%.2f")
+                "SOWNumber": st.column_config.TextColumn("SOW #", width="small"),
+                "SOWName": st.column_config.TextColumn("SOW Name", width="medium"),
+                "Client": st.column_config.TextColumn("Client", width="small"),
+                "ProjectType": st.column_config.TextColumn("Type", width="small"),
+                "Status": st.column_config.TextColumn("Status", width="small"),
+                "StartDate": st.column_config.DateColumn("Start Date", format="YYYY-MM-DD", width="small"),
+                "EndDate": st.column_config.DateColumn("End Date", format="YYYY-MM-DD", width="small"),
+                "CreatedBy": st.column_config.TextColumn("Created By", width="medium"),
+                "GeneratedDate": st.column_config.DateColumn("Created Date", format="YYYY-MM-DD", width="small"),
+                "TotalValue": st.column_config.NumberColumn("Total Value", format="$%.2f", width="small"),
             }
         )
         
@@ -3851,10 +3938,10 @@ def page_published_sows():
         st.subheader("📥 Download Documents")
         
         # FILTER TO ONLY SHOW APPROVED SOWS IN DROPDOWN
-        approved_df = df[df['Status'] == Config.STATUS_APPROVED].copy()
+        approved_df = filtered_df[filtered_df['Status'] == Config.STATUS_APPROVED].copy()
         
         if approved_df.empty:
-            st.info("📭 No approved SOWs available for download.")
+            st.info("📭 No approved SOWs available for download with the current filters.")
         else:
             # Create a selectbox with approved SOW numbers only
             sow_options = approved_df['SOWNumber'].unique().tolist()
@@ -3884,25 +3971,6 @@ def page_published_sows():
             # Find the selected row from approved_df
             selected_row = approved_df[approved_df['SOWNumber'] == selected_sow].iloc[0]
             project_type = selected_row.get('ProjectType', '')
-            
-            # REMOVED DEBUG EXPANDER SECTION - COMMENTED OUT AS REQUESTED
-            # with st.expander("🔍 Debug: View SOW Data Structure", expanded=False):
-            #     st.write("Selected SOW Data:")
-            #     st.json(selected_row.to_dict(), expanded=False)
-            #     
-            #     # Parse and show additional data
-            #     try:
-            #         additional_data = json.loads selected_row.get("AdditionalData", "{}")
-            #         st.write("Additional Data Structure:")
-            #         st.json(additional_data, expanded=False)
-            #         
-            #         if project_type == "Fixed Fee":
-            #             milestones = additional_data.get("project_specific", {}).get("milestones", [])
-            #             st.write(f"Milestones found: {len(milestones)}")
-            #             if milestones:
-            #                 st.write("First milestone:", milestones[0] if milestones else "None")
-            #     except:
-            #         st.write("Could not parse AdditionalData")
             
             # Create two columns for download buttons
             col1, col2 = st.columns(2)
@@ -3979,7 +4047,7 @@ def page_published_sows():
                     else:
                         st.error("❌ Document ID not found or get_document flow not configured.")
             
-            # Handle calculation sheet download (rest of your existing code remains the same)
+            # Handle calculation sheet download
             if download_calc_clicked:
                 with st.spinner(f"Generating calculation sheet for {selected_sow}..."):
                     try:
@@ -4117,60 +4185,92 @@ def page_published_sows():
         
         # ========== EXPORT DATA SECTION ==========
         st.divider()
-        st.subheader("📤 Export All Published Data")
+        st.subheader("📤 Export Data")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # Export to CSV
-            csv = df.to_csv(index=False)
+            # Export filtered data to CSV
+            csv = filtered_df.to_csv(index=False)
             st.download_button(
-                "📥 Download as CSV",
+                "📥 Download Filtered Data as CSV",
                 data=csv,
-                file_name=f"published_sows_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                file_name=f"published_sows_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
                 use_container_width=True,
                 key="export_published_csv_btn"
             )
         
         with col2:
-            # Export to Excel
+            # Export filtered data to Excel
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Published SOWs')
+                filtered_df.to_excel(writer, index=False, sheet_name='Published SOWs')
             
             st.download_button(
-                "📊 Download as Excel",
+                "📊 Download Filtered Data as Excel",
                 data=excel_buffer.getvalue(),
-                file_name=f"published_sows_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                file_name=f"published_sows_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
                 key="export_published_excel_btn"
             )
+        
+        # Add option to export all data
+        with st.expander("📁 Export All Data (Unfiltered)", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export all data to CSV
+                all_csv = original_df.to_csv(index=False)
+                st.download_button(
+                    "📥 Download ALL Data as CSV",
+                    data=all_csv,
+                    file_name=f"published_sows_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="export_all_published_csv_btn"
+                )
+            
+            with col2:
+                # Export all data to Excel
+                all_excel_buffer = BytesIO()
+                with pd.ExcelWriter(all_excel_buffer, engine='openpyxl') as writer:
+                    original_df.to_excel(writer, index=False, sheet_name='All Published SOWs')
+                
+                st.download_button(
+                    "📊 Download ALL Data as Excel",
+                    data=all_excel_buffer.getvalue(),
+                    file_name=f"published_sows_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="export_all_published_excel_btn"
+                )
     
     elif not st.session_state.get('published_sows_df') and not load_clicked:
         # Initial state - show instructions
-        st.info("👆 Click 'View Submitted SOWs' button to view all approved SOW documents")
+        st.info("👆 Click 'View Submitted SOWs' button to view all SOW documents")
         st.markdown("""
         ### How to use:
-        1. Select filters from the dropdowns above
-        2. Click **View Submitted SOWs** button
-        3. View all published SOW records in the interactive dataframe
+        1. Click the **View Submitted SOWs** button to load all SOW data from SharePoint
+        2. Use the filter dropdowns above to narrow down the results
+        3. View all SOW records in the interactive dataframe
         4. Select an approved SOW from the dropdown below the table
         5. Click **Download SOW Document** to download the main SOW document
         6. Click **Download Milestone Sheet** (for Fixed Fee) or **Download Resource Sheet** (for T&M) to download calculation sheets
         
         ### Features:
-        - **View all published SOW records** (approved status only)
-        - **Filter** by client and project type
+        - **Client-side filtering** - All filters are applied locally after data is loaded
+        - **Export filtered data** - Download only the records that match your filters
+        - **Export all data** - Option to download the complete dataset
         - **Download individual SOW documents** by selecting from the dropdown
         - **Download calculation sheets** (milestone or resource details) for approved SOWs
-        - **Export all published data** as CSV or Excel
+        - **All users can access** this page to view published SOWs
         
         ### Note:
-        - Only approved SOWs are shown by default and available for download
+        - Approved SOWs are available for download
         - Calculation sheets are available for Fixed Fee and T&M projects
-        - All users can access this page to view published SOWs
+        - Change Order projects only have the main SOW document
         """)
     
     # Add a reset button at the bottom
